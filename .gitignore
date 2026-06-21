@@ -1,0 +1,17 @@
+.build/
+UsageKun.app/
+.DS_Store
+*.xcuserdata
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+.swiftpm/
+.env
+.env.*
+*.log
+*.sqlite
+*.db
+*.xcarchive
+*.dSYM/
+xcuserdata/
+Package.resolved
