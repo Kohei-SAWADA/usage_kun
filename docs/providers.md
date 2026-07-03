@@ -55,8 +55,30 @@ Read fields:
 - `message.model`
 - `timestamp`
 - `sessionId`
+- `requestId`
+- `message.id`
 
-The app estimates a 5-hour block from local JSONL activity. The estimate may not match Claude Code subscription limits exactly.
+The app estimates a 5-hour block from local JSONL activity. Claude Code can write the same API response across multiple JSONL rows, so rows that contain both `requestId` and `message.id` are deduplicated by that pair before token totals are calculated.
+
+The weighted local estimate uses:
+
+```text
+input + output + cache_creation_input_tokens + cache_read_input_tokens * 0.1
+```
+
+Initial 5-hour cap estimates are 2.0M weighted tokens for Pro, 10M for Max 5x, and 40M for Max 20x. When opt-in official Claude usage sync succeeds, usage-kun can calibrate this local cap from the official used percentage and save it to:
+
+```text
+~/Library/Application Support/usage_kun/claude_calibration.json
+```
+
+Manual local estimate check:
+
+```sh
+swift run UsageKunCoreCheck --claude-estimate
+```
+
+The estimate may not match Claude Code subscription limits exactly, especially before calibration or when usage from other devices is not present in local logs.
 
 ## OpenAI Admin API
 
@@ -97,4 +119,3 @@ Any future implementation must:
 - show which data is read
 - explain why Keychain access is requested
 - never log credentials
-

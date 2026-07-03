@@ -72,6 +72,12 @@ swift run UsageKunCoreCheck
 
 この repo には `UsageKunCoreCheck` が含まれています。Command Line Tools だけの環境では `XCTest` や Swift Testing がうまく使えない場合があるため、実行可能 target として最低限の core check を用意しています。
 
+Claude のローカル 5-hour 推定と較正状態を確認する場合:
+
+```sh
+swift run UsageKunCoreCheck --claude-estimate
+```
+
 ## データソース
 
 usage-kun は段階的なデータ取得モデルを使います。
@@ -105,6 +111,7 @@ Sources/UsageKun/
 
 Sources/UsageKunCore/
   Config/
+    ClaudeCalibrationStore.swift
   Providers/
   Security/
   UsageSnapshot.swift
@@ -139,7 +146,7 @@ AI 使用量 monitor や menu bar utility はすでに複数あります。usage
 ## 制限
 
 - 公式 usage endpoint は予告なく変わる可能性があります。
-- Claude local-log quota 推定は best-effort で、subscription limit と完全一致しない場合があります。
+- Claude local-log quota 推定は best-effort です。`requestId` と `message.id` による重複排除を行い、opt-in の Claude 公式使用量 sync が成功した後は cap を自己較正できます。
 - OpenAI Admin API cost は Codex ChatGPT plan limit とは別です。
 - Anthropic Admin API cost data は organization account 向けで、personal account では使えない場合があります。
 - 自分で署名しない限り、この app は unsigned です。

@@ -72,6 +72,12 @@ swift run UsageKunCoreCheck
 
 This repository includes `UsageKunCoreCheck` because some Command Line Tools only environments do not provide a working `XCTest` or Swift Testing setup.
 
+To inspect the local Claude 5-hour estimate and calibration details:
+
+```sh
+swift run UsageKunCoreCheck --claude-estimate
+```
+
 ## Data Sources
 
 usage-kun uses a staged data model:
@@ -105,6 +111,7 @@ Sources/UsageKun/
 
 Sources/UsageKunCore/
   Config/
+    ClaudeCalibrationStore.swift
   Providers/
   Security/
   UsageSnapshot.swift
@@ -139,7 +146,7 @@ The emphasis is on:
 ## Limitations
 
 - Official usage endpoints can change without notice.
-- Claude local-log quota estimates are best-effort and may not exactly match subscription limits.
+- Claude local-log quota estimates are best-effort. They deduplicate repeated JSONL rows by `requestId` and `message.id`, and can self-calibrate after opt-in official Claude usage sync succeeds.
 - OpenAI Admin API costs are separate from Codex ChatGPT plan limits.
 - Anthropic Admin API cost data is intended for organization accounts and may not work for personal accounts.
 - The app is unsigned unless you sign it yourself.

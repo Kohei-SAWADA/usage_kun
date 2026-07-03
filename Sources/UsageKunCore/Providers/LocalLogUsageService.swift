@@ -2,9 +2,17 @@ import Foundation
 
 public final class LocalLogUsageService: UsageService {
     private let home: URL
+    private let calibrationStore: ClaudeCalibrationStore
+    private var lastClaudeBlockWeightedUsed: Double?
+    private var lastClaudeBlockComputedAt: Date?
+    private var lastClaudePlanKey: String?
 
-    public init(home: URL = FileManager.default.homeDirectoryForCurrentUser) {
+    public init(
+        home: URL = FileManager.default.homeDirectoryForCurrentUser,
+        calibrationStore: ClaudeCalibrationStore = ClaudeCalibrationStore()
+    ) {
         self.home = home
+        self.calibrationStore = calibrationStore
     }
 
     public func snapshots(now: Date) async -> [UsageSnapshot] {
@@ -12,6 +20,65 @@ public final class LocalLogUsageService: UsageService {
             codexSnapshot(now: now),
             claudeSnapshot(now: now)
         ]
+    }
+
+    public func recordClaudeOfficialSample(usedPercent: Double, now: Date) {
+        guard let weighted = lastClaudeBlockWeightedUsed,
+              let computedAt = lastClaudeBlockComputedAt,
+              let planKey = lastClaudePlanKey,
+              weighted > 200_000,
+              usedPercent >= 10,
+              now.timeIntervalSince(computedAt) < 600 else {
+            return
+        }
+
+        let sample = weighted / (usedPercent / 100)
+        guard sample > 500_000, sample < 500_000_000 else {
+            return
+        }
+
+        let nextCalibration: ClaudeCalibration
+        if var existing = calibrationStore.load(), existing.planKey == planKey {
+            existing.capEstimate = existing.capEstimate * 0.7 + sample * 0.3
+            existing.sampleCount += 1
+            existing.updatedAt = now
+            nextCalibration = existing
+        } else {
+            nextCalibration = ClaudeCalibration(
+                capEstimate: sample,
+                sampleCount: 1,
+                planKey: planKey,
+                updatedAt: now
+            )
+        }
+
+        try? calibrationStore.save(nextCalibration)
+    }
+
+    public nonisolated static func claudeCostEstimateUSD(
+        model: String?,
+        input: Double,
+        output: Double,
+        cacheWrite: Double,
+        cacheWrite5m: Double,
+        cacheWrite1h: Double,
+        cacheRead: Double
+    ) -> Double {
+        var usage: [String: Any] = [
+            "input_tokens": input,
+            "output_tokens": output,
+            "cache_creation_input_tokens": cacheWrite,
+            "cache_read_input_tokens": cacheRead
+        ]
+
+        if cacheWrite5m > 0 || cacheWrite1h > 0 {
+            usage["cache_creation"] = [
+                "ephemeral_5m_input_tokens": cacheWrite5m,
+                "ephemeral_1h_input_tokens": cacheWrite1h
+            ]
+        }
+
+        return ClaudePricing.estimateUSD(model: model, usage: ClaudeTokenUsage(usage: usage))
     }
 
     private func codexSnapshot(now: Date) -> UsageSnapshot {
@@ -359,6 +426,7 @@ public final class LocalLogUsageService: UsageService {
     private func claudeSnapshot(now: Date) -> UsageSnapshot {
         let projects = home.appendingPathComponent(".claude/projects")
         guard FileManager.default.fileExists(atPath: projects.path) else {
+            clearLastClaudeBlock()
             return UsageSnapshot(
                 provider: .claude,
                 status: .unknown,
@@ -385,6 +453,7 @@ public final class LocalLogUsageService: UsageService {
         }
 
         guard stats.usageEntries > 0 else {
+            clearLastClaudeBlock()
             return UsageSnapshot(
                 provider: .claude,
                 status: .unknown,
@@ -403,11 +472,14 @@ public final class LocalLogUsageService: UsageService {
 
         let blocks = Self.buildClaudeBlocks(events: stats.events)
         let activeBlock = blocks.first { now >= $0.startTime && now < $0.endTime }
-        let (planCap, planLabel) = claudePlanCap()
+        let (planCap, planLabel, planKey) = claudePlanCap()
         let usedWeighted = activeBlock?.weighted ?? 0
         let usedTokens = activeBlock?.tokens ?? 0
         let leftPercent = max(0, min(100, 100 - usedWeighted / planCap * 100))
         let resetAt = activeBlock?.endTime
+        lastClaudeBlockWeightedUsed = usedWeighted
+        lastClaudeBlockComputedAt = now
+        lastClaudePlanKey = planKey
 
         let costText = stats.todayEstimatedCost > 0
             ? " est. \(String(format: "$%.2f", stats.todayEstimatedCost))"
@@ -435,6 +507,12 @@ public final class LocalLogUsageService: UsageService {
             secondaryTitle: "Reset",
             secondaryValue: "\(resetText) / \(weekText)"
         )
+    }
+
+    private func clearLastClaudeBlock() {
+        lastClaudeBlockWeightedUsed = nil
+        lastClaudeBlockComputedAt = nil
+        lastClaudePlanKey = nil
     }
 
     private static func buildClaudeBlocks(events: [ClaudeUsageEvent]) -> [ClaudeBlock] {
@@ -469,7 +547,7 @@ public final class LocalLogUsageService: UsageService {
         return blocks
     }
 
-    private func claudePlanCap() -> (cap: Double, label: String) {
+    private func claudePlanCap() -> (cap: Double, label: String, key: String) {
         let path = home.appendingPathComponent(".claude.json")
         let orgType: String
         if let data = try? Data(contentsOf: path),
@@ -481,23 +559,25 @@ public final class LocalLogUsageService: UsageService {
             orgType = ""
         }
 
-        // Caps calibrated against Claude Code CLI's "Plan usage limits" display.
-        // Two data points (15% and 25% used) imply Pro cap ≈ 5.2M–6.6M weighted tok;
-        // 5.5M sits within ~2pp of both readings.
+        let selection: ClaudePlanSelection
         switch orgType {
         case "claude_max_20x":
-            return (110_000_000, "Max 20x")
+            selection = ClaudePlanSelection(key: "claude_max_20x", label: "Max 20x", defaultCap: ClaudePlanCaps.max20x)
         case "claude_max_5x", "claude_max5x":
-            return (27_500_000, "Max 5x")
-        // Newer Claude Code writes plain "claude_max" without the multiplier.
-        // Assume 5x; the official usage sync should be the accurate source anyway.
+            selection = ClaudePlanSelection(key: "claude_max_5x", label: "Max 5x", defaultCap: ClaudePlanCaps.max5x)
         case "claude_max":
-            return (27_500_000, "Max")
+            selection = ClaudePlanSelection(key: "claude_max", label: "Max", defaultCap: ClaudePlanCaps.max5x)
         case "claude_pro":
-            return (5_500_000, "Pro")
+            selection = ClaudePlanSelection(key: "claude_pro", label: "Pro", defaultCap: ClaudePlanCaps.pro)
         default:
-            return (5_500_000, "estimated")
+            selection = ClaudePlanSelection(key: "estimated", label: "estimated", defaultCap: ClaudePlanCaps.pro)
         }
+
+        if let calibration = calibrationStore.load(), calibration.planKey == selection.key {
+            return (calibration.capEstimate, "\(selection.label) (calibrated)", selection.key)
+        }
+
+        return (selection.defaultCap, selection.label, selection.key)
     }
 
     private static func roundedDownToHour(_ date: Date) -> Date {
@@ -532,6 +612,15 @@ public final class LocalLogUsageService: UsageService {
             let tokenUsage = ClaudeTokenUsage(usage: usage)
             let tokens = tokenUsage.total
             guard tokens > 0 else { continue }
+
+            let messageId = message["id"] as? String
+            let requestId = object["requestId"] as? String
+            if let messageId, let requestId {
+                let dedupKey = "\(requestId):\(messageId)"
+                guard stats.seenRequestKeys.insert(dedupKey).inserted else {
+                    continue
+                }
+            }
 
             let model = message["model"] as? String
             let sessionId = object["sessionId"] as? String
@@ -738,6 +827,20 @@ private struct ClaudeLogStats {
     var weekSessions = Set<String>()
     var lastUpdated: Date?
     var events: [ClaudeUsageEvent] = []
+    var seenRequestKeys = Set<String>()
+}
+
+private enum ClaudePlanCaps {
+    // Initial estimates for deduplicated Claude Code weighted tokens.
+    static let pro: Double = 2_000_000
+    static let max5x: Double = 10_000_000
+    static let max20x: Double = 40_000_000
+}
+
+private struct ClaudePlanSelection {
+    let key: String
+    let label: String
+    let defaultCap: Double
 }
 
 struct ClaudeUsageEvent {
@@ -814,18 +917,32 @@ private enum ClaudePricing {
     static func estimateUSD(model: String?, usage: ClaudeTokenUsage) -> Double {
         let rate = rate(for: model)
         let million = 1_000_000.0
+
+        let write5m: Double
+        let write1h: Double
+        if usage.cacheCreation5m > 0 || usage.cacheCreation1h > 0 {
+            write5m = usage.cacheCreation5m
+            write1h = usage.cacheCreation1h
+        } else {
+            write5m = usage.cacheCreation
+            write1h = 0
+        }
+
         return (usage.input * rate.input
             + usage.output * rate.output
-            + usage.cacheCreation * rate.cacheWrite5m
-            + usage.cacheCreation5m * rate.cacheWrite5m
-            + usage.cacheCreation1h * rate.cacheWrite1h
+            + write5m * rate.cacheWrite5m
+            + write1h * rate.cacheWrite1h
             + usage.cacheRead * rate.cacheRead) / million
     }
 
     private static func rate(for model: String?) -> Rate {
         let normalized = (model ?? "").lowercased()
 
-        if normalized.contains("opus-4-1") || normalized.contains("opus-4-0") || normalized.contains("opus-4.") == false && normalized.contains("opus-4") {
+        if normalized.contains("fable") || normalized.contains("mythos") {
+            return Rate(input: 10, output: 50, cacheWrite5m: 12.5, cacheWrite1h: 20, cacheRead: 1.0)
+        }
+
+        if normalized.contains("opus-4-1") || normalized.contains("opus-4-0") || normalized.contains("claude-3-opus") {
             return Rate(input: 15, output: 75, cacheWrite5m: 18.75, cacheWrite1h: 30, cacheRead: 1.5)
         }
 

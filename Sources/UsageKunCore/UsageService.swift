@@ -85,6 +85,9 @@ public final class CompositeUsageService: UsageService {
                 switch await cliOAuthService.claudeSnapshot(now: now) {
                 case .success(let snapshot):
                     claude = snapshot
+                    if config.localLogEnabled, let leftPercent = snapshot.percent {
+                        localLogService.recordClaudeOfficialSample(usedPercent: 100 - leftPercent, now: now)
+                    }
                 case .failure(let failure):
                     claude = Self.fallbackSnapshot(local: claude, provider: .claude, reason: failure.reason, now: now)
                 }

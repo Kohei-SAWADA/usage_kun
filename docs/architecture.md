@@ -24,6 +24,7 @@ Sources/UsageKun/
 Sources/UsageKunCore/
   Config/
     AppConfig.swift
+    ClaudeCalibrationStore.swift
   Providers/
     AdminAPIUsageService.swift
     BrowserOAuthUsageService.swift
@@ -45,6 +46,7 @@ Tests/UsageKunCoreCheck/
 - `UsageService`: provider abstraction consumed by UI state.
 - `CompositeUsageService`: combines local logs, official usage sync, Admin API costs, and opt-in browser/OAuth status.
 - `LocalLogUsageService`: reads known local Claude and Codex usage files.
+- `ClaudeCalibrationStore`: stores Claude 5-hour cap calibration learned from official usage sync.
 - `CLIOAuthUsageService`: opt-in official usage sync using existing local CLI sign-ins.
 - `AdminAPIUsageService`: optional organization cost sync through provider Admin APIs.
 - `BrowserOAuthUsageService`: opt-in state and messaging for future browser/OAuth integrations.
@@ -88,4 +90,3 @@ If the app is ever ported to Tauri or another desktop stack, keep these boundari
 - UI receives normalized `UsageSnapshot` values
 - credentials do not flow into UI views
 - macOS and cross-platform credential storage stay isolated
-

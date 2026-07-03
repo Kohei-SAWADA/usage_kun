@@ -54,9 +54,16 @@ struct UsageKunCoreCheck {
         expect(legacyConfig.codexOfficialUsageEnabled == false, "official Codex sync should default off for legacy config")
 
         checkOfficialUsageParsers(now: now)
+        await checkClaudeDedup(now: now)
+        await checkClaudeCalibration(now: now)
+        checkClaudePricing()
 
         if CommandLine.arguments.contains("--live") {
             await runLiveOfficialUsageCheck(now: Date())
+        }
+
+        if CommandLine.arguments.contains("--claude-estimate") {
+            await runClaudeEstimate(now: Date())
         }
 
         print("UsageKunCoreCheck passed")
@@ -115,6 +122,138 @@ struct UsageKunCoreCheck {
     }
 
     @MainActor
+    static func checkClaudeDedup(now: Date) async {
+        let home = FileManager.default.temporaryDirectory
+            .appendingPathComponent("UsageKunCoreCheck-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: home)
+        }
+
+        do {
+            try writeClaudeFixture(home: home, now: now)
+        } catch {
+            expect(false, "test Claude fixture should be writable: \(error)")
+        }
+
+        let snapshots = await LocalLogUsageService(home: home).snapshots(now: now)
+        guard let claude = snapshots.first(where: { $0.provider == .claude }) else {
+            expect(false, "local log service should return Claude snapshot")
+            return
+        }
+
+        let expectedPercent = 100 - 5_500.0 / 2_000_000.0 * 100
+        expectClose(claude.percent, expectedPercent, "Claude dedup should use 5.5K weighted tokens")
+        expect(claude.message?.contains("5.5K weighted tok") == true, "Claude message should show deduplicated weighted usage")
+        expect(claude.message?.contains("8.5K") != true, "Claude message should not show naive duplicate total")
+    }
+
+    @MainActor
+    static func checkClaudeCalibration(now: Date) async {
+        let home = FileManager.default.temporaryDirectory
+            .appendingPathComponent("UsageKunCoreCheck-\(UUID().uuidString)", isDirectory: true)
+        let calibrationURL = home.appendingPathComponent("claude_calibration.json")
+        let calibrationStore = ClaudeCalibrationStore(fileURL: calibrationURL)
+        defer {
+            try? FileManager.default.removeItem(at: home)
+        }
+
+        do {
+            try writeClaudeFixture(home: home, now: now, scale: 100)
+        } catch {
+            expect(false, "test Claude calibration fixture should be writable: \(error)")
+        }
+
+        let service = LocalLogUsageService(home: home, calibrationStore: calibrationStore)
+        _ = await service.snapshots(now: now)
+        service.recordClaudeOfficialSample(usedPercent: 25, now: now)
+
+        let calibration = calibrationStore.load()
+        expect(calibration != nil, "Claude calibration should be saved")
+        expectClose(calibration?.capEstimate, 2_200_000, "Claude calibration cap should be learned from official used percent")
+        expect(calibration?.sampleCount == 1, "Claude calibration should record sample count")
+
+        let snapshots = await service.snapshots(now: now)
+        guard let claude = snapshots.first(where: { $0.provider == .claude }) else {
+            expect(false, "calibrated local log service should return Claude snapshot")
+            return
+        }
+
+        expect(claude.message?.contains("(calibrated)") == true, "Claude message should mark calibrated cap")
+        expectClose(claude.percent, 75, "Claude calibrated percent should use learned cap")
+    }
+
+    static func checkClaudePricing() {
+        let opusCost = LocalLogUsageService.claudeCostEstimateUSD(
+            model: "claude-opus-4-8",
+            input: 1_000_000,
+            output: 1_000_000,
+            cacheWrite: 0,
+            cacheWrite5m: 0,
+            cacheWrite1h: 0,
+            cacheRead: 0
+        )
+        expectClose(opusCost, 30, "opus-4-8 should cost $5 in + $25 out per 1M tokens")
+
+        let fableCost = LocalLogUsageService.claudeCostEstimateUSD(
+            model: "claude-fable-5",
+            input: 1_000_000,
+            output: 1_000_000,
+            cacheWrite: 0,
+            cacheWrite5m: 0,
+            cacheWrite1h: 0,
+            cacheRead: 0
+        )
+        expectClose(fableCost, 60, "fable-5 should cost $10 in + $50 out per 1M tokens")
+
+        let cacheCost = LocalLogUsageService.claudeCostEstimateUSD(
+            model: "claude-opus-4-8",
+            input: 0,
+            output: 0,
+            cacheWrite: 1_000_000,
+            cacheWrite5m: 400_000,
+            cacheWrite1h: 600_000,
+            cacheRead: 0
+        )
+        expectClose(cacheCost, 0.4 * 6.25 + 0.6 * 10, "cache write must not be double counted")
+    }
+
+    static func writeClaudeFixture(home: URL, now: Date, scale: Double = 1) throws {
+        let project = home.appendingPathComponent(".claude/projects/p", isDirectory: true)
+        let logFile = project.appendingPathComponent("session.jsonl")
+        try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+
+        let t1 = isoString(now.addingTimeInterval(-30 * 60))
+        let t2 = isoString(now.addingTimeInterval(-20 * 60))
+        let firstInput = Int(1_000 * scale)
+        let firstOutput = Int(500 * scale)
+        let secondInput = Int(2_000 * scale)
+        let secondOutput = Int(1_000 * scale)
+        let secondCacheRead = Int(10_000 * scale)
+        let content = """
+        {"type":"assistant","timestamp":"\(t1)","sessionId":"s1","requestId":"req_1","message":{"id":"msg_1","model":"claude-opus-4-8","usage":{"input_tokens":\(firstInput),"output_tokens":\(firstOutput),"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}
+        {"type":"assistant","timestamp":"\(t1)","sessionId":"s1","requestId":"req_1","message":{"id":"msg_1","model":"claude-opus-4-8","usage":{"input_tokens":\(firstInput),"output_tokens":\(firstOutput),"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}
+        {"type":"assistant","timestamp":"\(t1)","sessionId":"s1","requestId":"req_1","message":{"id":"msg_1","model":"claude-opus-4-8","usage":{"input_tokens":\(firstInput),"output_tokens":\(firstOutput),"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}
+        {"type":"assistant","timestamp":"\(t2)","sessionId":"s1","requestId":"req_2","message":{"id":"msg_2","model":"claude-opus-4-8","usage":{"input_tokens":\(secondInput),"output_tokens":\(secondOutput),"cache_creation_input_tokens":0,"cache_read_input_tokens":\(secondCacheRead)}}}
+        """
+        try content.write(to: logFile, atomically: true, encoding: .utf8)
+    }
+
+    static func isoString(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.string(from: date)
+    }
+
+    static func expectClose(_ actual: Double?, _ expected: Double, _ message: String) {
+        guard let actual else {
+            expect(false, message)
+            return
+        }
+
+        expect(abs(actual - expected) < 0.0001, message)
+    }
+
+    @MainActor
     static func runLiveOfficialUsageCheck(now: Date) async {
         let service = CLIOAuthUsageService()
 
@@ -139,5 +278,16 @@ struct UsageKunCoreCheck {
         case .failure(let failure):
             print("failed: \(failure.reason)")
         }
+    }
+
+    @MainActor
+    static func runClaudeEstimate(now: Date) async {
+        let snapshots = await LocalLogUsageService().snapshots(now: now)
+        let claude = snapshots.first { $0.provider == .claude }
+
+        print("-- claude-estimate: local Claude --")
+        print("percent left: \(claude?.percentDisplay ?? "--")")
+        print("reset: \(claude?.resetAt.map { $0.description } ?? "--")")
+        print("message: \(claude?.message ?? "--")")
     }
 }
