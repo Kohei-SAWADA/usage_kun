@@ -79,6 +79,42 @@ To inspect the local Claude 5-hour estimate and calibration details:
 swift run UsageKunCoreCheck --claude-estimate
 ```
 
+## Updating An Existing Install
+
+Your settings and calibration data are stored outside the app bundle, so updating the app should not remove your preferences. You do not need to delete `~/.codex`, `~/.claude`, or `~/Library/Application Support/usage_kun`.
+
+### If You Installed From Git
+
+From the repository directory you already cloned:
+
+```sh
+cd usage_kun
+git pull
+./Scripts/package_app.sh
+open UsageKun.app
+```
+
+`package_app.sh` rebuilds the release executable, stops a running `UsageKun` process if one is active, and replaces the local `UsageKun.app` bundle.
+
+### If You Used GitHub Download ZIP
+
+Download the latest source ZIP from GitHub, unzip it, open Terminal in the unzipped `usage_kun` folder, and run:
+
+```sh
+./Scripts/package_app.sh
+open UsageKun.app
+```
+
+### If You Used The Release ZIP
+
+1. Download the latest `UsageKun-macOS.zip` from [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest).
+2. Quit the old usage-kun app from the menu bar.
+3. Unzip `UsageKun-macOS.zip`.
+4. Replace your old `UsageKun.app` with the new one.
+5. Open the new `UsageKun.app`.
+
+If macOS shows the usual unsigned-app warning, open the app the same way you did for the previous version. If official Claude sync is enabled, macOS may ask for Claude Code Keychain access again after the update.
+
 ## Data Sources
 
 usage-kun uses a staged data model:

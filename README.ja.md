@@ -79,6 +79,42 @@ Claude のローカル 5-hour 推定と較正状態を確認する場合:
 swift run UsageKunCoreCheck --claude-estimate
 ```
 
+## 既に使っている場合のアップデート
+
+設定や較正データは app bundle の外に保存されているため、app を更新しても通常は設定は消えません。`~/.codex`、`~/.claude`、`~/Library/Application Support/usage_kun` を削除する必要はありません。
+
+### Git clone で入れた場合
+
+すでに clone してある repository directory で次を実行します:
+
+```sh
+cd usage_kun
+git pull
+./Scripts/package_app.sh
+open UsageKun.app
+```
+
+`package_app.sh` は release executable を作り直し、起動中の `UsageKun` process があれば停止してから、ローカルの `UsageKun.app` bundle を新しいものに置き換えます。
+
+### GitHub の Download ZIP で入れた場合
+
+GitHub から最新の source ZIP を download して展開し、展開した `usage_kun` folder を Terminal で開いて次を実行します:
+
+```sh
+./Scripts/package_app.sh
+open UsageKun.app
+```
+
+### Release ZIP で入れた場合
+
+1. [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest) から最新の `UsageKun-macOS.zip` を download します。
+2. メニューバーから古い usage-kun を終了します。
+3. `UsageKun-macOS.zip` を展開します。
+4. 古い `UsageKun.app` を新しい `UsageKun.app` に置き換えます。
+5. 新しい `UsageKun.app` を開きます。
+
+macOS が unsigned app の警告を出す場合は、前の version と同じ方法で開いてください。Claude 公式 sync を有効にしている場合、更新後に macOS が Claude Code の Keychain access を再度確認することがあります。
+
 ## データソース
 
 usage-kun は段階的なデータ取得モデルを使います。
