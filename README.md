@@ -1,5 +1,9 @@
 # usage-kun
 
+<p align="center">
+  <img src="assets/usage-kun-thumbnail.png" alt="usage-kun thumbnail showing an AI usage meter for Claude and Codex">
+</p>
+
 <p align="right">
   <strong>English</strong> |
   <a href="README.ja.md">日本語</a>

@@ -1,5 +1,9 @@
 # usage-kun
 
+<p align="center">
+  <img src="assets/usage-kun-thumbnail.png" alt="Claude と Codex の使用量メーターを示す usage-kun サムネイル">
+</p>
+
 <p align="right">
   <a href="README.md">English</a> |
   <strong>日本語</strong>
