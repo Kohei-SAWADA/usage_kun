@@ -37,23 +37,27 @@ struct UsageKunCoreCheck {
         let legacyConfigJSON = """
         {
           "localLogEnabled": false,
-          "openAIAdminEnabled": true,
-          "anthropicAdminEnabled": false,
-          "cookieOAuthEnabled": false,
-          "browserSource": "safari",
+          "retiredRemoteFlag": true,
+          "retiredSourceName": "safari",
           "refreshIntervalMinutes": 10
         }
         """.data(using: .utf8)!
         let legacyConfig = try! JSONDecoder().decode(AppConfig.self, from: legacyConfigJSON)
 
         expect(legacyConfig.localLogEnabled == false, "legacy config values should decode")
-        expect(legacyConfig.browserSource == .safari, "legacy browser source should decode")
         expect(legacyConfig.desktopWidgetEnabled == true, "desktop widget should default on for legacy config")
         expect(legacyConfig.launchAtLoginEnabled == true, "launch at login should default on for legacy config")
+        expect(legacyConfig.menuBarShowsNumbers == false, "menu bar numbers should default off for legacy config")
+        expect(legacyConfig.onboardingCompleted == false, "onboarding should default incomplete for legacy config")
+        expect(legacyConfig.notificationsEnabled == false, "notifications should default off for legacy config")
         expect(legacyConfig.claudeOfficialUsageEnabled == false, "official Claude sync should default off for legacy config")
         expect(legacyConfig.codexOfficialUsageEnabled == false, "official Codex sync should default off for legacy config")
 
         checkOfficialUsageParsers(now: now)
+        checkWeeklySnapshot(now: now)
+        checkMenuBarEntries(now: now)
+        checkOnboardingDetection()
+        checkNotificationPlanner(now: now)
         await checkClaudeDedup(now: now)
         await checkClaudeCalibration(now: now)
         checkClaudePricing()
@@ -64,6 +68,10 @@ struct UsageKunCoreCheck {
 
         if CommandLine.arguments.contains("--claude-estimate") {
             await runClaudeEstimate(now: Date())
+        }
+
+        if CommandLine.arguments.contains("--live-codex-composite") {
+            await runLiveCodexCompositeCheck(now: Date())
         }
 
         print("UsageKunCoreCheck passed")
@@ -119,6 +127,191 @@ struct UsageKunCoreCheck {
             "reset_time_ms should parse as absolute milliseconds"
         )
         expect(codexWindows?.secondary?.usedPercent == 40, "longer window should become secondary")
+    }
+
+    static func checkWeeklySnapshot(now: Date) {
+        let claudeJSON = """
+        {
+          "five_hour": {"utilization": 40.0, "resets_at": "2026-04-11T07:00:00Z"},
+          "seven_day": {"utilization": 90.0, "resets_at": "2026-04-17T00:00:00Z"}
+        }
+        """.data(using: .utf8)!
+
+        guard let claudeReading = CLIOAuthUsageService.parseClaudeOAuthUsage(data: claudeJSON, now: now) else {
+            expect(false, "Claude weekly fixture should parse")
+            return
+        }
+
+        let claude = CLIOAuthUsageService.makeSnapshot(
+            provider: .claude,
+            reading: claudeReading,
+            now: now,
+            source: "fixture",
+            detail: "fixture"
+        )
+
+        expectClose(claude.percent, 60, "Claude 5h left should be 60")
+        expectClose(claude.weekly?.percentLeft, 10, "Claude weekly left should be 10")
+        expect(claude.status == .critical, "Claude weekly 10% left should drive status")
+        expect(claude.secondaryValue?.contains("7 day") != true, "Claude secondaryValue should not contain 7 day")
+
+        let codexJSON = """
+        {
+          "rate_limits": {
+            "primary": {"used_percent": 40.0, "window_minutes": 300, "resets_in_seconds": 3600},
+            "secondary": {"used_percent": 90.0, "window_minutes": 10080, "resets_in_seconds": 360000}
+          }
+        }
+        """.data(using: .utf8)!
+
+        guard let codexReading = CLIOAuthUsageService.parseCodexWhamUsage(data: codexJSON, now: now) else {
+            expect(false, "Codex weekly fixture should parse")
+            return
+        }
+
+        let codex = CLIOAuthUsageService.makeSnapshot(
+            provider: .codex,
+            reading: codexReading,
+            now: now,
+            source: "fixture",
+            detail: "fixture"
+        )
+
+        expectClose(codex.percent, 60, "Codex 5h left should be 60")
+        expectClose(codex.weekly?.percentLeft, 10, "Codex weekly left should be 10")
+        expect(codex.status == .critical, "Codex weekly 10% left should drive status")
+        expect(codex.secondaryValue?.contains("7 day") != true, "Codex secondaryValue should not contain 7 day")
+    }
+
+    static func checkMenuBarEntries(now: Date) {
+        let snapshots = [
+            UsageSnapshot(
+                provider: .claude,
+                status: .ok,
+                used: 62,
+                limit: nil,
+                percent: 62,
+                resetAt: nil,
+                updatedAt: now,
+                message: nil,
+                unit: "%",
+                weekly: UsageWindow(percentLeft: 40, resetAt: nil)
+            ),
+            UsageSnapshot(
+                provider: .codex,
+                status: .ok,
+                used: 41,
+                limit: nil,
+                percent: 41,
+                resetAt: nil,
+                updatedAt: now,
+                message: nil,
+                unit: "%"
+            )
+        ]
+
+        let entries = UsageStore.menuBarEntries(snapshots: snapshots)
+
+        expect(entries.count == 2, "menu bar entries should include Claude and Codex")
+        expect(entries.map(\.mark) == ["C", "X"], "menu bar entry order should be C then X")
+        expectClose(entries.first?.percentLeft, 40, "Claude menu bar percent should use the constrained weekly value")
+        expectClose(entries.last?.percentLeft, 41, "Codex menu bar percent should use the primary value")
+    }
+
+    static func checkOnboardingDetection() {
+        let home = FileManager.default.temporaryDirectory
+            .appendingPathComponent("UsageKunCoreCheck-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: home)
+        }
+
+        do {
+            let codexDirectory = home.appendingPathComponent(".codex", isDirectory: true)
+            try FileManager.default.createDirectory(at: codexDirectory, withIntermediateDirectories: true)
+            try "{}".write(to: codexDirectory.appendingPathComponent("auth.json"), atomically: true, encoding: .utf8)
+        } catch {
+            expect(false, "test Codex sign-in fixture should be writable: \(error)")
+        }
+
+        var detection = OnboardingDetector.detect(home: home)
+        expect(detection.codexSignInFound == true, "Codex auth.json should be detected")
+        expect(detection.claudeSignInFound == false, "Claude sign-in should not be detected yet")
+
+        do {
+            try "{}".write(to: home.appendingPathComponent(".claude.json"), atomically: true, encoding: .utf8)
+        } catch {
+            expect(false, "test Claude sign-in fixture should be writable: \(error)")
+        }
+
+        detection = OnboardingDetector.detect(home: home)
+        expect(detection.codexSignInFound == true, "Codex detection should remain true")
+        expect(detection.claudeSignInFound == true, "Claude .claude.json should be detected")
+        expect(detection.anyFound == true, "detection should report anyFound")
+    }
+
+    static func checkNotificationPlanner(now: Date) {
+        func snapshot(percent: Double, resetAt: Date?, updatedAt: Date) -> UsageSnapshot {
+            UsageSnapshot(
+                provider: .claude,
+                status: UsageStatusRules.status(primaryLeft: percent, weeklyLeft: nil),
+                used: percent,
+                limit: nil,
+                percent: percent,
+                resetAt: resetAt,
+                updatedAt: updatedAt,
+                message: nil,
+                unit: "%"
+            )
+        }
+
+        let resetAt = now.addingTimeInterval(3600)
+        let previous30 = snapshot(percent: 30, resetAt: resetAt, updatedAt: now)
+        let current24 = snapshot(percent: 24, resetAt: resetAt, updatedAt: now.addingTimeInterval(60))
+
+        var plan = UsageNotificationPlanner.plan(
+            previous: [previous30],
+            current: [current24],
+            alreadyNotified: []
+        )
+        expect(plan.events.count == 1, "crossing 25% should create one notification")
+        expect(plan.events.first?.dedupKey == "claude.5h.threshold25", "25% notification key should be stable")
+        expect(plan.notified.contains("claude.5h.threshold25"), "25% key should be marked notified")
+
+        plan = UsageNotificationPlanner.plan(
+            previous: [previous30],
+            current: [current24],
+            alreadyNotified: plan.notified
+        )
+        expect(plan.events.isEmpty, "already notified 25% crossing should not repeat")
+
+        let current9 = snapshot(percent: 9, resetAt: resetAt, updatedAt: now.addingTimeInterval(120))
+        plan = UsageNotificationPlanner.plan(
+            previous: [current24],
+            current: [current9],
+            alreadyNotified: plan.notified
+        )
+        expect(plan.events.count == 1, "crossing 10% should create one notification")
+        expect(plan.events.first?.dedupKey == "claude.5h.threshold10", "10% notification key should be stable")
+
+        let resetPrevious = snapshot(
+            percent: 9,
+            resetAt: now.addingTimeInterval(-10),
+            updatedAt: now.addingTimeInterval(-20)
+        )
+        let resetCurrent = snapshot(
+            percent: 95,
+            resetAt: now.addingTimeInterval(5 * 60 * 60),
+            updatedAt: now
+        )
+        plan = UsageNotificationPlanner.plan(
+            previous: [resetPrevious],
+            current: [resetCurrent],
+            alreadyNotified: plan.notified
+        )
+        expect(plan.events.count == 1, "reset recovery should create one notification")
+        expect(plan.events.first?.dedupKey.contains(".reset.") == true, "reset notification should use a reset key")
+        expect(!plan.notified.contains("claude.5h.threshold25"), "reset should clear threshold25 key")
+        expect(!plan.notified.contains("claude.5h.threshold10"), "reset should clear threshold10 key")
     }
 
     @MainActor
@@ -289,5 +482,36 @@ struct UsageKunCoreCheck {
         print("percent left: \(claude?.percentDisplay ?? "--")")
         print("reset: \(claude?.resetAt.map { $0.description } ?? "--")")
         print("message: \(claude?.message ?? "--")")
+    }
+
+    @MainActor
+    static func runLiveCodexCompositeCheck(now: Date) async {
+        let configURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("usage-kun-live-codex-\(UUID().uuidString).json")
+        let configStore = AppConfigStore(configURL: configURL)
+        defer {
+            try? FileManager.default.removeItem(at: configURL)
+        }
+
+        do {
+            try configStore.save(AppConfig(
+                localLogEnabled: true,
+                claudeOfficialUsageEnabled: false,
+                codexOfficialUsageEnabled: true
+            ))
+        } catch {
+            expect(false, "live Codex config should be writable: \(error)")
+        }
+
+        let service = CompositeUsageService(
+            configStore: configStore
+        )
+        let snapshots = await service.snapshots(now: now)
+        let codex = snapshots.first { $0.provider == .codex }
+
+        print("-- live: Composite Codex --")
+        print("Codex: \(codex?.percentDisplay ?? "--") source=\(codex?.source ?? "--")")
+
+        expect(codex != nil, "composite service should return Codex")
     }
 }

@@ -6,6 +6,18 @@ public protocol UsageService {
     func snapshots(now: Date) async -> [UsageSnapshot]
 }
 
+public struct MenuBarEntry: Equatable {
+    public let mark: String
+    public let percentLeft: Double?
+    public let status: UsageStatus
+
+    public init(mark: String, percentLeft: Double?, status: UsageStatus) {
+        self.mark = mark
+        self.percentLeft = percentLeft
+        self.status = status
+    }
+}
+
 public final class MockUsageService: UsageService {
     public init() {}
 
@@ -41,23 +53,17 @@ public final class MockUsageService: UsageService {
 
 public final class CompositeUsageService: UsageService {
     private let configStore: AppConfigStore
-    private let credentialStore: KeychainCredentialStore
     private let localLogService: LocalLogUsageService
     private let cliOAuthService: CLIOAuthUsageService
-    private let browserOAuthService: BrowserOAuthUsageService
 
     public init(
         configStore: AppConfigStore,
-        credentialStore: KeychainCredentialStore,
         localLogService: LocalLogUsageService = LocalLogUsageService(),
-        cliOAuthService: CLIOAuthUsageService = CLIOAuthUsageService(),
-        browserOAuthService: BrowserOAuthUsageService = BrowserOAuthUsageService()
+        cliOAuthService: CLIOAuthUsageService = CLIOAuthUsageService()
     ) {
         self.configStore = configStore
-        self.credentialStore = credentialStore
         self.localLogService = localLogService
         self.cliOAuthService = cliOAuthService
-        self.browserOAuthService = browserOAuthService
     }
 
     public func snapshots(now: Date) async -> [UsageSnapshot] {
@@ -102,22 +108,6 @@ public final class CompositeUsageService: UsageService {
             }
         }
 
-        if config.openAIAdminEnabled || config.anthropicAdminEnabled {
-            let adminService = AdminAPIUsageService(credentialStore: credentialStore)
-
-            if config.openAIAdminEnabled {
-                snapshots.append(await adminService.openAISnapshot(now: now))
-            }
-
-            if config.anthropicAdminEnabled {
-                snapshots.append(await adminService.anthropicSnapshot(now: now))
-            }
-        }
-
-        if config.cookieOAuthEnabled {
-            snapshots.append(browserOAuthService.snapshot(config: config, now: now))
-        }
-
         if snapshots.isEmpty {
             snapshots = disabledSnapshots(now: now)
         }
@@ -146,7 +136,8 @@ public final class CompositeUsageService: UsageService {
                 unit: local.unit,
                 metricTitle: local.metricTitle,
                 secondaryTitle: local.secondaryTitle,
-                secondaryValue: local.secondaryValue
+                secondaryValue: local.secondaryValue,
+                weekly: local.weekly
             )
         }
 
@@ -190,7 +181,7 @@ public final class CompositeUsageService: UsageService {
                 percent: nil,
                 resetAt: nil,
                 updatedAt: now,
-                message: "Choose local logs, Admin API, or Cookie/OAuth.",
+                message: "Choose local logs or official CLI sync.",
                 source: "disabled",
                 unit: nil,
                 metricTitle: "Status",
@@ -205,37 +196,47 @@ public final class UsageStore: ObservableObject {
     @Published public private(set) var snapshots: [UsageSnapshot] = []
     @Published public private(set) var isRefreshing = false
     @Published public private(set) var config: AppConfig
-    @Published public private(set) var hasOpenAIAdminKey: Bool
-    @Published public private(set) var hasAnthropicAdminKey: Bool
-    @Published public private(set) var hasManualCookieHeader: Bool
     @Published public private(set) var lastErrorMessage: String?
 
     private let service: UsageService
     private let configStore: AppConfigStore
-    private let credentialStore: KeychainCredentialStore
 
     public init(
         service: UsageService,
-        configStore: AppConfigStore = AppConfigStore(),
-        credentialStore: KeychainCredentialStore = KeychainCredentialStore()
+        configStore: AppConfigStore = AppConfigStore()
     ) {
         self.service = service
         self.configStore = configStore
-        self.credentialStore = credentialStore
         config = configStore.load()
-        hasOpenAIAdminKey = credentialStore.hasValue(for: .openAIAdminKey)
-        hasAnthropicAdminKey = credentialStore.hasValue(for: .anthropicAdminKey)
-        hasManualCookieHeader = credentialStore.hasValue(for: .manualCookieHeader)
     }
 
-    public var highestUsagePercent: Double {
-        snapshots.compactMap(\.percent).max() ?? 0
+    public var menuBarEntries: [MenuBarEntry] {
+        Self.menuBarEntries(snapshots: snapshots)
     }
 
-    public var highestUsageLabel: String {
-        snapshots.contains { $0.percent != nil }
-            ? "\(Int(highestUsagePercent.rounded()))%"
-            : "Syncing"
+    public nonisolated static func menuBarEntries(snapshots: [UsageSnapshot]) -> [MenuBarEntry] {
+        [UsageProvider.claude, .codex].compactMap { provider in
+            guard let snapshot = snapshots.first(where: { $0.provider == provider }) else {
+                return nil
+            }
+
+            let effectivePercent: Double?
+            if let primary = snapshot.percent {
+                effectivePercent = min(primary, snapshot.weekly?.percentLeft ?? 100)
+            } else {
+                effectivePercent = nil
+            }
+
+            return MenuBarEntry(
+                mark: provider.mark,
+                percentLeft: effectivePercent,
+                status: snapshot.status
+            )
+        }
+    }
+
+    public var mostConstrainedPercent: Double? {
+        menuBarEntries.compactMap(\.percentLeft).min()
     }
 
     public var codexFiveHourLabel: String {
@@ -281,32 +282,5 @@ public final class UsageStore: ObservableObject {
         }
 
         refresh()
-    }
-
-    public func saveCredential(_ value: String, for key: CredentialKey) {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-
-        do {
-            try credentialStore.save(trimmed, for: key)
-            reloadCredentialPresence()
-            lastErrorMessage = nil
-        } catch {
-            lastErrorMessage = "Failed to save to Keychain."
-        }
-
-        refresh()
-    }
-
-    public func deleteCredential(_ key: CredentialKey) {
-        credentialStore.delete(key)
-        reloadCredentialPresence()
-        refresh()
-    }
-
-    private func reloadCredentialPresence() {
-        hasOpenAIAdminKey = credentialStore.hasValue(for: .openAIAdminKey)
-        hasAnthropicAdminKey = credentialStore.hasValue(for: .anthropicAdminKey)
-        hasManualCookieHeader = credentialStore.hasValue(for: .manualCookieHeader)
     }
 }

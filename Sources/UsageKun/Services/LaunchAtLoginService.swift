@@ -26,7 +26,7 @@ enum LaunchAtLoginService {
                 return nil
             }
         } catch {
-            return "Could not update Launch at Login. Make sure you are running from UsageKun.app."
+            return "Launch at login could not be updated. Open usage_kun from UsageKun.app and try again."
         }
     }
 
@@ -39,13 +39,13 @@ enum LaunchAtLoginService {
         case .notRegistered:
             return nil
         case .notFound:
-            return "Launch at Login is available only when UsageKun is running as UsageKun.app."
+            return "Launch at login works only when usage_kun is opened from UsageKun.app."
         @unknown default:
             return nil
         }
     }
 
     private static var approvalMessage: String {
-        "Allow usage-kun in macOS System Settings > General > Login Items."
+        "Allow usage_kun in macOS System Settings > General > Login Items."
     }
 }

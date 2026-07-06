@@ -7,39 +7,40 @@
 
 usage-kun is a small, privacy-first macOS menu bar app for keeping Claude and Codex usage visible while you work.
 
-It is built as a personal utility: a compact usage meter rather than a full analytics dashboard. It reads local CLI usage data by default, can optionally reuse local CLI sign-in tokens for official usage numbers, and stores user-supplied API keys only in macOS Keychain.
+It is built as a personal utility: a compact usage meter rather than a full analytics dashboard. It reads local CLI usage data by default and can optionally reuse Claude Code / Codex CLI sign-in tokens in read-only mode for official 5-hour and 1-week quota numbers. It does not store, refresh, or log those tokens.
 
 This project is not affiliated with, endorsed by, or sponsored by OpenAI, Anthropic, or any other provider.
 
 ## Screenshots
 
-usage-kun is designed to stay visible without becoming a dashboard. The pinned desktop meter keeps the main limits in the corner of the screen, while the menu bar popover shows the fuller provider breakdown when needed.
+usage-kun is designed to stay visible without becoming a dashboard. The pinned desktop meter keeps both the 5-hour primary window and 1-week secondary window in the corner of the screen, while the menu bar popover shows the fuller provider breakdown when needed.
 
 <p align="center">
-  <img src="assets/screenshots/pinned-desktop-meter.png" alt="Pinned desktop usage meter showing Codex and Claude Code usage in the top-left corner of macOS." width="680">
+  <img src="assets/screenshots/pinned-desktop-meter.png" alt="Pinned desktop usage meter showing Codex and Claude Code 5-hour and 1-week usage bars in the top-left corner of macOS." width="420">
 </p>
 
 <p align="center">
-  <em>Pinned desktop meter for at-a-glance Claude and Codex usage.</em>
+  <em>Pinned desktop meter with compact 5-hour and 1-week quota bars.</em>
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/menu-bar-popover.png" alt="Menu bar popover showing Codex and Claude Code usage cards, reset timing, sync source, and settings tab." width="520">
+  <img src="assets/screenshots/menu-bar-popover.png" alt="Menu bar popover showing Codex and Claude Code usage cards with 5-hour and 1-week limits, reset timing, sync source, and settings tab." width="520">
 </p>
 
 <p align="center">
-  <em>Menu bar popover with detailed usage cards and quick settings access.</em>
+  <em>Menu bar popover with detailed provider cards, reset timing, and quick settings access.</em>
 </p>
 
 ## Features
 
 - Native macOS menu bar app built with SwiftPM, AppKit, and SwiftUI
-- Compact popover from the menu bar
+- Compact menu bar popover with provider cards
 - Optional pinned desktop widget for at-a-glance usage
-- Claude and Codex local-log usage estimates
+- 5-hour primary and 1-week secondary quota bars for Claude Code and Codex
+- Local-log usage estimates when official sync is unavailable
 - Optional official usage sync for Claude Code and Codex CLI sign-ins
-- Optional OpenAI and Anthropic Admin API cost views
-- Credentials stored in macOS Keychain, not in config files
+- Low-usage and reset notifications for the packaged app
+- Read-only token reuse with no token persistence, refresh, or credential logging
 - No telemetry and no bundled analytics
 
 ## Requirements
@@ -83,9 +84,8 @@ swift run UsageKunCoreCheck --claude-estimate
 usage-kun uses a staged data model:
 
 1. Local logs: reads known Claude Code and Codex local usage logs for estimates.
-2. Official usage sync: opt-in only; reuses local CLI sign-in tokens in read-only mode to fetch provider usage numbers.
-3. Admin API costs: opt-in only; reads Admin API keys from macOS Keychain.
-4. Browser/OAuth phase: UI and storage placeholders exist, but automatic browser cookie reading is not implemented.
+2. Official usage sync: opt-in only; reuses local CLI sign-in tokens in read-only mode to fetch provider 5-hour and 1-week usage numbers.
+3. Claude calibration: when official Claude sync succeeds, usage-kun can calibrate the local Claude 5-hour cap estimate for later fallback use.
 
 See [docs/providers.md](docs/providers.md) for details.
 
@@ -97,7 +97,7 @@ See [docs/providers.md](docs/providers.md) for details.
 - No conversation content display.
 - No automatic browser cookie reading.
 - CLI sign-in tokens are not refreshed, copied, stored by this app, or logged.
-- API keys and manual cookie headers are stored in macOS Keychain.
+- No Admin API keys or manual cookie headers are collected in this release.
 
 See [PRIVACY.md](PRIVACY.md) for the full privacy note.
 
@@ -107,13 +107,19 @@ See [PRIVACY.md](PRIVACY.md) for the full privacy note.
 Sources/UsageKun/
   main.swift
   Services/
+    LaunchAtLoginService.swift
+    UsageNotifier.swift
   Views/
 
 Sources/UsageKunCore/
   Config/
+    AppConfig.swift
     ClaudeCalibrationStore.swift
+  OnboardingDetector.swift
   Providers/
-  Security/
+    CLIOAuthUsageService.swift
+    LocalLogUsageService.swift
+  UsageNotificationPlanner.swift
   UsageSnapshot.swift
   UsageService.swift
 
@@ -129,6 +135,8 @@ Packaging/
 
 Scripts/
   package_app.sh
+  package_release_zip.sh
+  preflight_publication.sh
 ```
 
 ## Why Another Usage Meter?
@@ -147,9 +155,46 @@ The emphasis is on:
 
 - Official usage endpoints can change without notice.
 - Claude local-log quota estimates are best-effort. They deduplicate repeated JSONL rows by `requestId` and `message.id`, and can self-calibrate after opt-in official Claude usage sync succeeds.
-- OpenAI Admin API costs are separate from Codex ChatGPT plan limits.
-- Anthropic Admin API cost data is intended for organization accounts and may not work for personal accounts.
+- Official sync requires existing Claude Code / Codex CLI sign-in state on the same Mac.
+- Notifications are intended for the packaged `UsageKun.app` build.
 - The app is unsigned unless you sign it yourself.
+
+## Release History
+
+### v0.2.0
+
+This update turns usage-kun into a clearer quota monitor for both short and weekly windows.
+
+- Added first-class 5-hour and 1-week usage windows for Claude Code and Codex.
+- Redesigned the pinned desktop meter and menu bar popover with primary and secondary quota bars.
+- Kept the menu bar compact as `usage` plus a remaining-usage meter.
+- Added one-click onboarding for official CLI usage sync.
+- Added optional low-usage and reset notifications for the packaged app.
+- Removed retired Admin API and Cookie/OAuth code paths.
+- Added publication preflight checks for local-only files, build output, app bundles, and release artifacts.
+
+Full notes: [docs/release-notes-v0.2.0.md](docs/release-notes-v0.2.0.md)
+
+### v0.1.1
+
+This update focused on making Claude Code 5-hour estimates more reliable while preserving the existing Codex behavior.
+
+- Improved Claude local-log accuracy by deduplicating repeated JSONL usage rows with the `(requestId, message.id)` pair.
+- Recalibrated initial Claude 5-hour caps for deduplicated weighted tokens.
+- Added automatic Claude cap calibration after opt-in official Claude usage sync succeeds.
+- Added `swift run UsageKunCoreCheck --claude-estimate` for checking the local Claude estimate.
+- Fixed Claude cost estimation for Opus, Fable, Mythos, and cache-write token handling.
+
+Full notes: [docs/release-notes-v0.1.1.md](docs/release-notes-v0.1.1.md)
+
+### v0.1.0
+
+Initial public release.
+
+- Native macOS menu bar usage meter for Claude and Codex.
+- Optional pinned desktop widget.
+- Local-first usage display.
+- Privacy-first credential handling and no telemetry.
 
 ## Development
 
@@ -162,6 +207,18 @@ Package a release-style app bundle:
 
 ```sh
 ./Scripts/package_app.sh
+```
+
+Run the publication preflight:
+
+```sh
+./Scripts/preflight_publication.sh
+```
+
+Build a local release zip:
+
+```sh
+./Scripts/package_release_zip.sh
 ```
 
 ## License

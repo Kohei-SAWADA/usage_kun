@@ -1,121 +1,93 @@
-# Providers
+# providers
 
-usage-kun separates provider-specific data access from the UI. The UI consumes normalized `UsageSnapshot` values.
+## 公式使用量同期 (CLI sign-in)
 
-## Official Usage Sync
-
-Official usage sync is opt-in per provider. It reuses sign-in tokens that the local CLI already stores on the machine, in read-only mode.
-
-Tokens are not refreshed, copied to app storage, or logged. They are sent only to the matching provider endpoint.
-
-These integrations are best-effort and may break if the provider changes CLI storage or usage endpoints.
+初回バナーまたは Settings の `Official usage` でプロバイダごとに opt-in できます。CLI が保存しているサインイントークンを読み取り専用で再利用し、各ベンダー公式の使用量エンドポイントから CLI 表示と同じ数値を取得します。
 
 ### Claude
 
-- Source: macOS Keychain item `Claude Code-credentials`, with `~/.claude/.credentials.json` as a fallback for older installs.
-- Endpoint: `https://api.anthropic.com/api/oauth/usage`
-- Headers include `Authorization: Bearer`, `anthropic-beta: oauth-2025-04-20`, and a Claude Code style `User-Agent`.
-- Goal: match the usage numbers shown by Claude Code `/usage`.
+- token: macOS Keychain の `Claude Code-credentials`(なければ `~/.claude/.credentials.json`)
+- endpoint: `GET https://api.anthropic.com/api/oauth/usage`
+- headers: `Authorization: Bearer`, `anthropic-beta: oauth-2025-04-20`, `User-Agent: claude-code/<version>`(この UA がないと厳しい 429 バケットに入る)
+- response: `five_hour.utilization` / `five_hour.resets_at`, `seven_day.utilization` / `seven_day.resets_at`
+- 表示: 5 hour left と 7 day left をそれぞれバー表示。weekly が先に尽きる場合は status も weekly に従う
+- Claude Code の `/usage` と同じ数値
 
 ### Codex
 
-- Source: `~/.codex/auth.json`
-- Token fields: `tokens.access_token` and optional `tokens.account_id`
-- Endpoint: `https://chatgpt.com/backend-api/wham/usage`
-- Headers include `Authorization: Bearer` and optional `ChatGPT-Account-Id`.
-- Goal: match the usage numbers shown by Codex `/status`.
+- token: `~/.codex/auth.json` の `tokens.access_token` と `tokens.account_id`
+- endpoint: `GET https://chatgpt.com/backend-api/wham/usage`
+- headers: `Authorization: Bearer`, `ChatGPT-Account-Id`
+- response: `rate_limits.primary` / `secondary`(`used_percent`, `resets_in_seconds` など。フィールド名のゆれはパーサで正規化)
+- 表示: primary を 5 hour left、secondary を 7 day left としてバー表示。weekly が先に尽きる場合は status も weekly に従う
+- Codex の `/status` と同じ数値
 
-## Codex Local Logs
+### 安全性
 
-Primary local source:
+- トークンは更新 (refresh) しない。期限切れなら CLI を一度起動するよう促す
+- トークンは保存・ログ出力しない。送信先は各ベンダーの公式エンドポイントのみ
+- 取得に失敗したらローカルログ推定にフォールバックし、理由をメッセージに表示する
+- どちらも非公開エンドポイントのため、予告なく変わる可能性がある
+
+## Codex ローカルログ
+
+現在の同期方法:
 
 - `~/.codex/logs_2.sqlite`
-- Reads `codex.rate_limits` websocket events.
-- Treats `rate_limits.primary.window_minutes == 300` as the 5-hour usage window.
-- Displays remaining percentage as `100 - used_percent`.
-- Displays `rate_limits.secondary` as a 7-day remaining window when available.
+- 読む内容: `codex.rate_limits` websocket event の `rate_limits.primary`
+- 表示: General usage limits の `5 hour left`、reset、7 day left
 
-Fallback sources:
+補助的に読む内容:
 
-- `~/.codex/sessions/**/*.jsonl`
 - `~/.codex/state_5.sqlite`
+- `threads.tokens_used`, `threads.updated_at`
+- 表示補助: 今日のスレッド数、直近5時間/今週 token
 
-The fallback data is only an estimate and may not match official limits.
+ローカルログ連携で読まないもの:
 
-## Claude Local Logs
+- 認証トークン
+- 会話本文
 
-Sources:
+注意:
+
+- `rate_limits.primary.window_minutes == 300` を 5 hour usage limit として扱います。
+- Codex内部値の `used_percent` は使用済み%なので、UIでは `100 - used_percent` を left% として表示します。
+- `rate_limits.secondary` は 7 day left としてサブ表示します。
+- ライブログがない場合は `~/.codex/sessions/**/*.jsonl` の `token_count` を fallback として読みます。
+- rate limit がまだ出ていない場合だけ、ローカルDBの token 集計を参考値として表示します。
+
+## Claude ローカルログ
+
+現在の同期方法:
 
 - `~/.claude/projects/**/*.jsonl`
-- `~/.claude.json`
+- 読む内容: `message.usage`, `message.model`, `timestamp`, `sessionId`, `requestId`, `message.id`
+- 表示: General usage limits の `5 hour left`、reset、今週の token、概算コスト
 
-Read fields:
+ローカルログ連携で読まないもの:
 
-- `message.usage`
-- `message.model`
-- `timestamp`
-- `sessionId`
-- `requestId`
-- `message.id`
+- Claude の認証情報
+- 会話本文の表示や外部送信
 
-The app estimates a 5-hour block from local JSONL activity. Claude Code can write the same API response across multiple JSONL rows, so rows that contain both `requestId` and `message.id` are deduplicated by that pair before token totals are calculated.
+5 hour ブロックの算出方法:
 
-The weighted local estimate uses:
+- JSONL の `timestamp` を時系列に並べて、5 時間以上のブランクが空いた次のメッセージを新しいブロックの開始点として扱います。
+- ブロックの開始時刻は時単位に切り捨て、そこから 5 時間で `reset` を表します。
+- 同一 API 応答が複数行に記録されるため、`requestId` と `message.id` が両方ある行はこのペアで重複排除します。
+- ブロック内の weighted token は `input + output + cache_creation_input_tokens + cache_read_input_tokens * 0.1` で計算します。`cache_creation_input_tokens` は `ephemeral_5m + ephemeral_1h` と同じ合計値なので二重に加算しません。
+- プランは `~/.claude.json` の `oauthAccount.organizationType` から検出します:
+  - `claude_pro` → 2,000,000 weighted tok cap
+  - `claude_max_5x` → 10,000,000 weighted tok cap
+  - `claude_max` (新しい Claude Code は倍率なしで書く) → 10,000,000 weighted tok cap (5x 相当を仮定)
+  - `claude_max_20x` → 40,000,000 weighted tok cap
+  - 未検出時は 2,000,000 tok (Pro 相当) を仮置きします
+- 各プランの cap は重複排除後の初期推定値です。公式使用量同期が成功したときは、同時点のローカル weighted 使用量と公式 used% から `~/Library/Application Support/usage_kun/claude_calibration.json` に cap を自動較正します。
+- `left% = 100 - used / cap * 100` を percent として表示します。Codex と同じく 35% 以下で warning、15% 以下で critical 扱いです。
+- weekly cap はローカル推定ではまだ percent 化せず、今週 token の detail として表示します。公式同期が有効な場合は `seven_day` の left% を 7 day バーに表示します。
 
-```text
-input + output + cache_creation_input_tokens + cache_read_input_tokens * 0.1
-```
+注意:
 
-Initial 5-hour cap estimates are 2.0M weighted tokens for Pro, 10M for Max 5x, and 40M for Max 20x. When opt-in official Claude usage sync succeeds, usage-kun can calibrate this local cap from the official used percentage and save it to:
-
-```text
-~/Library/Application Support/usage_kun/claude_calibration.json
-```
-
-Manual local estimate check:
-
-```sh
-swift run UsageKunCoreCheck --claude-estimate
-```
-
-The estimate may not match Claude Code subscription limits exactly, especially before calibration or when usage from other devices is not present in local logs.
-
-## OpenAI Admin API
-
-Source:
-
-- `OPENAI_ADMIN_KEY` stored in macOS Keychain
-
-Notes:
-
-- The key must look like an OpenAI Admin API key.
-- Regular project API keys are not enough for organization cost endpoints.
-- OpenAI API organization costs are separate from Codex ChatGPT plan limits.
-
-## Anthropic Admin API
-
-Source:
-
-- `ANTHROPIC_ADMIN_KEY` stored in macOS Keychain
-
-Notes:
-
-- Anthropic Admin API cost data is intended for organization accounts.
-- It may not work for personal accounts.
-
-## Browser/OAuth Placeholder
-
-Current state:
-
-- opt-in UI is present
-- browser source selection is stored
-- manual cookie headers can be stored in Keychain
-- automatic browser cookie reading is not implemented
-
-Any future implementation must:
-
-- be explicit opt-in
-- show which browser is read
-- show which data is read
-- explain why Keychain access is requested
-- never log credentials
+- 概算コストは公開価格をもとにした参考値です。
+- 実請求やサブスクリプション残量とは一致しない場合があります。
+- 5 時間ブロックの cap は公開された公式値ではなく、ローカルログから推定した参考値です。実際の Claude Code プラン上限と完全には一致しない場合があります。
+- 手動確認には `swift run UsageKunCoreCheck --claude-estimate` を使い、その直後の Claude Code `/usage` と比べます。大きくずれる場合は公式使用量同期を一度有効にすると自動較正されます。

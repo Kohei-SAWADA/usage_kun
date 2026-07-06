@@ -101,15 +101,22 @@ public final class LocalLogUsageService: UsageService {
             } else {
                 resetText = "--"
             }
-            let secondaryLeftText: String
+            let weekly: UsageWindow?
             if let secondary {
                 let secondaryExpired = secondary.resetsAt.map { $0 <= now } ?? false
                 let secondaryLeft = secondaryExpired ? 100 : Int(secondary.leftPercent.rounded())
-                secondaryLeftText = "7 day \(secondaryLeft)% left"
+                weekly = UsageWindow(
+                    percentLeft: Double(secondaryLeft),
+                    resetAt: secondaryExpired ? nil : secondary.resetsAt
+                )
             } else if let weekTokens = localStats.weekTokens {
-                secondaryLeftText = "\(Self.compact(weekTokens)) tok"
+                weekly = UsageWindow(
+                    percentLeft: nil,
+                    resetAt: nil,
+                    detail: "\(Self.compact(weekTokens)) tok this week"
+                )
             } else {
-                secondaryLeftText = "--"
+                weekly = nil
             }
             let messageSuffix = localStats.todayThreads.map { "Today: \($0) threads." } ?? ""
             let rawUsedPercent = primaryExpired ? 0 : Int(primary.usedPercent.rounded())
@@ -127,7 +134,7 @@ public final class LocalLogUsageService: UsageService {
 
             return UsageSnapshot(
                 provider: .codex,
-                status: Self.statusForRemaining(leftPercent),
+                status: UsageStatusRules.status(primaryLeft: leftPercent, weeklyLeft: weekly?.percentLeft),
                 used: leftPercent,
                 limit: nil,
                 percent: leftPercent,
@@ -138,7 +145,8 @@ public final class LocalLogUsageService: UsageService {
                 unit: "%",
                 metricTitle: "5 hour left",
                 secondaryTitle: "Reset",
-                secondaryValue: "\(resetText) / \(secondaryLeftText)"
+                secondaryValue: resetText,
+                weekly: weekly
             )
         }
 
@@ -235,6 +243,11 @@ public final class LocalLogUsageService: UsageService {
         let fiveHourTokens = stats.fiveHourTokens ?? 0
         let weekTokens = stats.weekTokens ?? 0
         let todayThreads = stats.todayThreads ?? 0
+        let weekly = UsageWindow(
+            percentLeft: nil,
+            resetAt: nil,
+            detail: "\(Self.compact(weekTokens)) tok this week"
+        )
 
         return UsageSnapshot(
             provider: .codex,
@@ -249,7 +262,8 @@ public final class LocalLogUsageService: UsageService {
             unit: "tok",
             metricTitle: "5 hour limit",
             secondaryTitle: "Week",
-            secondaryValue: "\(Self.compact(weekTokens)) tok"
+            secondaryValue: nil,
+            weekly: weekly
         )
     }
 
@@ -485,7 +499,11 @@ public final class LocalLogUsageService: UsageService {
             ? " est. \(String(format: "$%.2f", stats.todayEstimatedCost))"
             : ""
         let resetText = resetAt.map(Self.relativeResetText) ?? "--"
-        let weekText = "Week \(Self.compact(stats.weekTokens)) tok"
+        let weekly = UsageWindow(
+            percentLeft: nil,
+            resetAt: nil,
+            detail: "\(Self.compact(stats.weekTokens)) tok this week"
+        )
 
         let messageParts = [
             "\(planLabel) plan, 5h block: \(Self.compact(usedWeighted)) weighted tok of \(Self.compact(planCap)) (raw \(Self.compact(usedTokens)) tok)",
@@ -494,7 +512,7 @@ public final class LocalLogUsageService: UsageService {
 
         return UsageSnapshot(
             provider: .claude,
-            status: Self.statusForRemaining(leftPercent),
+            status: UsageStatusRules.status(primaryLeft: leftPercent, weeklyLeft: weekly.percentLeft),
             used: leftPercent,
             limit: nil,
             percent: leftPercent,
@@ -505,7 +523,8 @@ public final class LocalLogUsageService: UsageService {
             unit: "%",
             metricTitle: "5 hour left",
             secondaryTitle: "Reset",
-            secondaryValue: "\(resetText) / \(weekText)"
+            secondaryValue: resetText,
+            weekly: weekly
         )
     }
 
@@ -701,7 +720,7 @@ public final class LocalLogUsageService: UsageService {
         return calendar.date(from: components) ?? calendar.startOfDay(for: date)
     }
 
-    private static func parseDate(_ value: String?) -> Date? {
+    fileprivate static func parseDate(_ value: String?) -> Date? {
         guard let value else { return nil }
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -717,18 +736,6 @@ public final class LocalLogUsageService: UsageService {
     private func fileModificationDate(_ file: URL) -> Date {
         let values = try? file.resourceValues(forKeys: [.contentModificationDateKey])
         return values?.contentModificationDate ?? Date.distantPast
-    }
-
-    private static func statusForRemaining(_ percent: Double) -> UsageStatus {
-        if percent <= 15 {
-            return .critical
-        }
-
-        if percent <= 35 {
-            return .warning
-        }
-
-        return .ok
     }
 
     private static func relativeResetText(_ date: Date) -> String {

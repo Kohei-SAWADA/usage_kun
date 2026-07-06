@@ -13,13 +13,10 @@ Depending on your settings, usage-kun may read:
 - `~/.claude/projects/**/*.jsonl`
 - `~/.claude.json`
 - the macOS Keychain item used by Claude Code for opt-in official Claude usage sync
-- API keys or manual headers saved by usage-kun in macOS Keychain
 
 ## What The App Sends
 
 When official usage sync is enabled, usage-kun sends the relevant sign-in token only to that provider's usage endpoint.
-
-When Admin API cost sync is enabled, usage-kun sends the relevant Admin API key only to that provider's API endpoint.
 
 ## What The App Does Not Do
 
@@ -29,7 +26,7 @@ When Admin API cost sync is enabled, usage-kun sends the relevant Admin API key 
 - It does not automatically read browser cookies.
 - It does not refresh CLI sign-in tokens.
 - It does not store CLI sign-in tokens.
-- It does not write API keys to config files.
+- It does not collect Admin API keys or manual cookie headers in this release.
 - It does not log credentials.
 
 ## Local Storage
@@ -40,9 +37,8 @@ Settings are stored in:
 ~/Library/Application Support/usage_kun/config.json
 ```
 
-Credentials are stored in macOS Keychain.
+Claude Code credentials remain in the Keychain item created by Claude Code itself. usage-kun reads that item only when official Claude sync is enabled.
 
 ## Endpoint Stability
 
 Some integrations rely on provider endpoints and local CLI file formats that may change. If an integration breaks, usage-kun should fail with a visible message and fall back to local estimates when possible.
-

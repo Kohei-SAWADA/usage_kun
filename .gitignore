@@ -1,17 +1,33 @@
+# Build output and packaged artifacts
 .build/
-UsageKun.app/
-.DS_Store
-*.xcuserdata
-*.xcodeproj
-*.xcworkspace
-DerivedData/
 .swiftpm/
-.env
-.env.*
+DerivedData/
+UsageKun.app/
+UsageKun 2.app/
+UsageKun-macOS.zip
+*.xcarchive
+*.dSYM/
+
+# Local app/runtime state
+.DS_Store
+.claude/
+.vscode/
 *.log
 *.sqlite
 *.db
-*.xcarchive
-*.dSYM/
-xcuserdata/
+.env
+.env.*
 Package.resolved
+
+# Xcode-local metadata
+*.xcuserdata
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+
+# Local-only research/docs and implementation notes. Do not publish these.
+12000_document/
+260703_idea.md
+fable_sekkei.md
+sekkeisho.md
+解説.md

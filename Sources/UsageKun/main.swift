@@ -23,17 +23,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastRefreshIntervalMinutes: Int = -1
     private let usageStore: UsageStore
     private let dashboardRouter = DashboardRouter()
+    private let usageNotifier = UsageNotifier()
 
     override init() {
         let configStore = AppConfigStore()
-        let credentialStore = KeychainCredentialStore()
         usageStore = UsageStore(
             service: CompositeUsageService(
-                configStore: configStore,
-                credentialStore: credentialStore
+                configStore: configStore
             ),
-            configStore: configStore,
-            credentialStore: credentialStore
+            configStore: configStore
         )
         super.init()
     }
@@ -45,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupPopover()
         setupDesktopWidget()
         observeUsageChanges()
+        usageNotifier.start(store: usageStore)
         scheduleRefreshTimer(intervalMinutes: usageStore.config.refreshIntervalMinutes)
         _ = LaunchAtLoginService.apply(isEnabled: usageStore.config.launchAtLoginEnabled)
         usageStore.refresh()
@@ -85,15 +84,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = item
 
         if let button = item.button {
-            button.image = StatusIconRenderer.image(
-                percent: usageStore.highestUsagePercent,
-                status: usageStore.overallStatus
-            )
-            button.imagePosition = .imageLeading
-            button.title = " usage"
             button.toolTip = "usage_kun"
             button.target = self
-            button.action = #selector(togglePopover(_:))
+            button.action = #selector(handleStatusItemClick(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+            updateStatusIcon()
         }
     }
 
@@ -108,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupDesktopWidget() {
-        let size = NSSize(width: 312, height: 188)
+        let size = NSSize(width: 312, height: 260)
         let panel = InteractiveDesktopPanel(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -177,7 +172,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &cancellables)
     }
 
-    @objc private func togglePopover(_ sender: AnyObject?) {
+    @objc private func handleStatusItemClick(_ sender: AnyObject?) {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            showStatusMenu()
+            return
+        }
+
+        togglePopover(sender)
+    }
+
+    private func togglePopover(_ sender: AnyObject?) {
         guard let button = statusItem?.button, let popover else { return }
 
         if popover.isShown {
@@ -208,6 +212,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    private func showStatusMenu() {
+        guard let button = statusItem?.button else { return }
+
+        let menu = NSMenu()
+        let refreshItem = NSMenuItem(title: "Refresh", action: #selector(refreshFromMenu(_:)), keyEquivalent: "")
+        refreshItem.target = self
+        menu.addItem(refreshItem)
+
+        let settingsItem = NSMenuItem(title: "Settings...", action: #selector(openSettingsFromMenu(_:)), keyEquivalent: "")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let quitItem = NSMenuItem(
+            title: "Quit usage_kun",
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q"
+        )
+        quitItem.target = NSApp
+        menu.addItem(quitItem)
+
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
+    }
+
+    @objc private func refreshFromMenu(_ sender: AnyObject?) {
+        usageStore.refresh()
+    }
+
+    @objc private func openSettingsFromMenu(_ sender: AnyObject?) {
+        presentPopoverFromStatusItem(selectedTab: .settings)
+    }
+
     private func scheduleRefreshTimer(intervalMinutes: Int) {
         let clamped = max(1, intervalMinutes)
         if clamped == lastRefreshIntervalMinutes, refreshTimer != nil {
@@ -228,10 +265,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateStatusIcon() {
-        statusItem?.button?.image = StatusIconRenderer.image(
-            percent: usageStore.highestUsagePercent,
-            status: usageStore.overallStatus
-        )
+        guard let button = statusItem?.button else { return }
+        let entries = usageStore.menuBarEntries
+
+        if usageStore.config.menuBarShowsNumbers, !entries.isEmpty {
+            let title = NSMutableAttributedString()
+
+            for (index, entry) in entries.enumerated() {
+                if index > 0 {
+                    title.append(NSAttributedString(string: " "))
+                }
+
+                let percentText = entry.percentLeft.map { "\(Int($0.rounded()))" } ?? "--"
+                title.append(NSAttributedString(
+                    string: "\(entry.mark)\(percentText)",
+                    attributes: [
+                        .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold),
+                        .foregroundColor: entry.status.menuBarColor
+                    ]
+                ))
+            }
+
+            button.image = nil
+            button.imagePosition = .noImage
+            button.attributedTitle = title
+        } else {
+            button.image = StatusIconRenderer.image(
+                percent: usageStore.mostConstrainedPercent ?? 0,
+                status: usageStore.overallStatus
+            )
+            button.imagePosition = .imageLeading
+            button.attributedTitle = NSAttributedString(
+                string: " usage",
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
+                    .foregroundColor: NSColor.labelColor
+                ]
+            )
+        }
     }
 
     private func syncDesktopWidgetVisibility(isEnabled: Bool) {

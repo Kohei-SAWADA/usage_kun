@@ -4,9 +4,6 @@ import SwiftUI
 public enum UsageProvider: String, CaseIterable, Identifiable {
     case claude
     case codex
-    case openaiAPI
-    case anthropicAPI
-    case browserOAuth
 
     public var id: String { rawValue }
 
@@ -16,12 +13,6 @@ public enum UsageProvider: String, CaseIterable, Identifiable {
             "Claude Code"
         case .codex:
             "Codex"
-        case .openaiAPI:
-            "OpenAI API"
-        case .anthropicAPI:
-            "Anthropic API"
-        case .browserOAuth:
-            "Cookie / OAuth"
         }
     }
 
@@ -31,12 +22,6 @@ public enum UsageProvider: String, CaseIterable, Identifiable {
             "C"
         case .codex:
             "X"
-        case .openaiAPI:
-            "O"
-        case .anthropicAPI:
-            "A"
-        case .browserOAuth:
-            "B"
         }
     }
 
@@ -46,8 +31,6 @@ public enum UsageProvider: String, CaseIterable, Identifiable {
             Color(red: 0.66, green: 0.44, blue: 1.00)
         case .claude:
             Color(red: 1.00, green: 0.55, blue: 0.18)
-        case .openaiAPI, .anthropicAPI, .browserOAuth:
-            Color(red: 0.16, green: 1.00, blue: 0.52)
         }
     }
 }
@@ -109,6 +92,34 @@ public enum UsageStatus: String, Comparable {
     }
 }
 
+public struct UsageWindow: Equatable {
+    public let percentLeft: Double?
+    public let resetAt: Date?
+    public let detail: String?
+
+    public init(percentLeft: Double?, resetAt: Date?, detail: String? = nil) {
+        self.percentLeft = percentLeft
+        self.resetAt = resetAt
+        self.detail = detail
+    }
+}
+
+public enum UsageStatusRules {
+    public static func status(primaryLeft: Double, weeklyLeft: Double?) -> UsageStatus {
+        let effectiveLeft = min(primaryLeft, weeklyLeft ?? 100)
+
+        if effectiveLeft <= 15 {
+            return .critical
+        }
+
+        if effectiveLeft <= 35 {
+            return .warning
+        }
+
+        return .ok
+    }
+}
+
 public struct UsageSnapshot: Identifiable, Equatable {
     public let provider: UsageProvider
     public let status: UsageStatus
@@ -123,6 +134,7 @@ public struct UsageSnapshot: Identifiable, Equatable {
     public let metricTitle: String
     public let secondaryTitle: String
     public let secondaryValue: String?
+    public let weekly: UsageWindow?
 
     public var id: UsageProvider { provider }
 
@@ -139,7 +151,8 @@ public struct UsageSnapshot: Identifiable, Equatable {
         unit: String? = nil,
         metricTitle: String = "Usage",
         secondaryTitle: String = "Reset",
-        secondaryValue: String? = nil
+        secondaryValue: String? = nil,
+        weekly: UsageWindow? = nil
     ) {
         self.provider = provider
         self.status = status
@@ -154,6 +167,7 @@ public struct UsageSnapshot: Identifiable, Equatable {
         self.metricTitle = metricTitle
         self.secondaryTitle = secondaryTitle
         self.secondaryValue = secondaryValue
+        self.weekly = weekly
     }
 
     public var usedDisplay: String {

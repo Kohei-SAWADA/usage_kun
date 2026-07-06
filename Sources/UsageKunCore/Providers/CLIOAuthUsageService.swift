@@ -106,7 +106,7 @@ public final class CLIOAuthUsageService {
             return .failure(OfficialSyncFailure(reason: "Claude usage endpoint returned an unexpected format."))
         }
 
-        return .success(snapshot(
+        return .success(Self.makeSnapshot(
             provider: .claude,
             reading: reading,
             now: now,
@@ -223,7 +223,7 @@ public final class CLIOAuthUsageService {
             return .failure(OfficialSyncFailure(reason: "ChatGPT usage endpoint returned an unexpected format."))
         }
 
-        return .success(snapshot(
+        return .success(Self.makeSnapshot(
             provider: .codex,
             reading: reading,
             now: now,
@@ -234,7 +234,7 @@ public final class CLIOAuthUsageService {
 
     // MARK: - Shared snapshot building
 
-    private func snapshot(
+    public nonisolated static func makeSnapshot(
         provider: UsageProvider,
         reading: OfficialUsageReading,
         now: Date,
@@ -244,25 +244,18 @@ public final class CLIOAuthUsageService {
         let leftPercent = reading.primary.leftPercent
         let resetAt = reading.primary.resetsAt
         let resetText = resetAt.map(Self.relativeResetText) ?? "--"
-
-        let secondaryText: String
-        if let secondary = reading.secondary {
-            secondaryText = "7 day \(Int(secondary.leftPercent.rounded()))% left"
-        } else {
-            secondaryText = "--"
+        let weekly = reading.secondary.map {
+            UsageWindow(percentLeft: $0.leftPercent, resetAt: $0.resetsAt)
         }
 
         var messageParts = [detail]
         if let plan = reading.planLabel, !plan.isEmpty {
             messageParts.append("Plan: \(plan).")
         }
-        if let secondary = reading.secondary, let weeklyReset = secondary.resetsAt {
-            messageParts.append("7 day window resets in \(Self.relativeResetText(weeklyReset)).")
-        }
 
         return UsageSnapshot(
             provider: provider,
-            status: Self.statusForRemaining(leftPercent),
+            status: UsageStatusRules.status(primaryLeft: leftPercent, weeklyLeft: weekly?.percentLeft),
             used: leftPercent,
             limit: nil,
             percent: leftPercent,
@@ -273,7 +266,8 @@ public final class CLIOAuthUsageService {
             unit: "%",
             metricTitle: "5 hour left",
             secondaryTitle: "Reset",
-            secondaryValue: "\(resetText) / \(secondaryText)"
+            secondaryValue: resetText,
+            weekly: weekly
         )
     }
 
@@ -445,18 +439,6 @@ public final class CLIOAuthUsageService {
         }
 
         return nil
-    }
-
-    private nonisolated static func statusForRemaining(_ percent: Double) -> UsageStatus {
-        if percent <= 15 {
-            return .critical
-        }
-
-        if percent <= 35 {
-            return .warning
-        }
-
-        return .ok
     }
 
     private nonisolated static func relativeResetText(_ date: Date) -> String {

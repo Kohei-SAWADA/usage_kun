@@ -7,39 +7,40 @@
 
 usage-kun は、Claude と Codex の使用量を作業中にすぐ確認するための、privacy-first な macOS メニューバーアプリです。
 
-これは個人用の小さなユーティリティとして作っています。大きな分析ダッシュボードではなく、作業中に一瞬見るための使用量メーターです。初期状態ではローカル CLI ログを読み、必要な場合だけ opt-in で CLI サインイン token を読み取り専用で再利用して公式使用量を取得します。ユーザーが入力する API key は macOS Keychain にのみ保存します。
+これは個人用の小さなユーティリティとして作っています。大きな分析ダッシュボードではなく、作業中に一瞬見るための使用量メーターです。初期状態ではローカル CLI ログを読み、必要な場合だけ opt-in で Claude Code / Codex CLI サインイン token を読み取り専用で再利用し、公式の 5-hour / 1-week 残量を取得します。この app は token を保存・更新・log 出力しません。
 
 このプロジェクトは OpenAI、Anthropic、その他 provider の公式アプリではありません。各社による承認・提携・提供を受けたものでもありません。
 
 ## スクリーンショット
 
-usage-kun は、作業画面の邪魔をせずに常に見えることを意識しています。固定デスクトップメーターでは主要な残量だけを左上に表示し、メニューバーの popover では provider ごとの詳細を確認できます。
+usage-kun は、作業画面の邪魔をせずに常に見えることを意識しています。固定デスクトップメーターでは 5-hour primary window と 1-week secondary window を左上に表示し、メニューバーの popover では provider ごとの詳細を確認できます。
 
 <p align="center">
-  <img src="assets/screenshots/pinned-desktop-meter.png" alt="macOS の左上に固定表示された Codex と Claude Code の使用量メーター。" width="680">
+  <img src="assets/screenshots/pinned-desktop-meter.png" alt="macOS の左上に固定表示された Codex と Claude Code の 5-hour / 1-week 使用量メーター。" width="420">
 </p>
 
 <p align="center">
-  <em>デスクトップ左上に固定される、ひと目確認用の使用量メーター。</em>
+  <em>5-hour と 1-week の残量を小さく確認できる固定デスクトップメーター。</em>
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/menu-bar-popover.png" alt="Codex と Claude Code の使用量カード、reset 時刻、sync source、settings tab を表示するメニューバー popover。" width="520">
+  <img src="assets/screenshots/menu-bar-popover.png" alt="Codex と Claude Code の 5-hour / 1-week 使用量カード、reset 時刻、sync source、settings tab を表示するメニューバー popover。" width="520">
 </p>
 
 <p align="center">
-  <em>メニューバーから開く詳細 popover。使用量カードと設定にすぐアクセスできます。</em>
+  <em>メニューバーから開く詳細 popover。provider ごとの残量、reset、設定にすぐアクセスできます。</em>
 </p>
 
 ## 機能
 
 - SwiftPM、AppKit、SwiftUI で作った native macOS メニューバーアプリ
-- メニューバーから開く compact な popover
+- メニューバーから開く provider card つき compact popover
 - ひと目確認用の固定デスクトップウィジェット
-- Claude / Codex のローカルログに基づく使用量推定
+- Claude Code / Codex の 5-hour primary window と 1-week secondary window のバー表示
+- 公式同期が使えない場合のローカルログに基づく使用量推定
 - Claude Code / Codex CLI サインインを利用した opt-in の公式使用量 sync
-- OpenAI / Anthropic Admin API cost 表示のための拡張口
-- 認証情報は設定ファイルではなく macOS Keychain に保存
+- `.app` 版での低残量・reset 通知
+- token を保存・更新・log 出力しない read-only な token 再利用
 - telemetry や analytics SDK は含めない
 
 ## 必要環境
@@ -83,9 +84,8 @@ swift run UsageKunCoreCheck --claude-estimate
 usage-kun は段階的なデータ取得モデルを使います。
 
 1. Local logs: Claude Code と Codex の既知のローカル使用量ログを読んで推定します。
-2. Official usage sync: opt-in の場合のみ、ローカル CLI サインイン token を読み取り専用で再利用し、provider の使用量 endpoint から値を取得します。
-3. Admin API costs: opt-in の場合のみ、macOS Keychain に保存された Admin API key を使って cost を取得します。
-4. Browser/OAuth phase: UI と保存枠はありますが、自動 browser cookie 読み取りは実装していません。
+2. Official usage sync: opt-in の場合のみ、ローカル CLI サインイン token を読み取り専用で再利用し、provider の 5-hour / 1-week 使用量 endpoint から値を取得します。
+3. Claude calibration: Claude 公式 sync が成功した場合、その時点の公式値を使ってローカル推定用の 5-hour cap を較正できます。
 
 詳細は [docs/providers.md](docs/providers.md) を参照してください。
 
@@ -97,7 +97,7 @@ usage-kun は段階的なデータ取得モデルを使います。
 - 会話本文の表示や外部送信はしません。
 - browser cookie の自動読み取りはしません。
 - CLI sign-in token は refresh せず、app 内に保存せず、log に出しません。
-- API key と manual cookie header は macOS Keychain に保存します。
+- この release では Admin API key や manual cookie header を収集しません。
 
 詳しくは [PRIVACY.md](PRIVACY.md) を参照してください。
 
@@ -107,13 +107,19 @@ usage-kun は段階的なデータ取得モデルを使います。
 Sources/UsageKun/
   main.swift
   Services/
+    LaunchAtLoginService.swift
+    UsageNotifier.swift
   Views/
 
 Sources/UsageKunCore/
   Config/
+    AppConfig.swift
     ClaudeCalibrationStore.swift
+  OnboardingDetector.swift
   Providers/
-  Security/
+    CLIOAuthUsageService.swift
+    LocalLogUsageService.swift
+  UsageNotificationPlanner.swift
   UsageSnapshot.swift
   UsageService.swift
 
@@ -129,6 +135,8 @@ Packaging/
 
 Scripts/
   package_app.sh
+  package_release_zip.sh
+  preflight_publication.sh
 ```
 
 ## なぜ別の使用量メーターを作るのか
@@ -147,9 +155,46 @@ AI 使用量 monitor や menu bar utility はすでに複数あります。usage
 
 - 公式 usage endpoint は予告なく変わる可能性があります。
 - Claude local-log quota 推定は best-effort です。`requestId` と `message.id` による重複排除を行い、opt-in の Claude 公式使用量 sync が成功した後は cap を自己較正できます。
-- OpenAI Admin API cost は Codex ChatGPT plan limit とは別です。
-- Anthropic Admin API cost data は organization account 向けで、personal account では使えない場合があります。
+- 公式 sync には、同じ Mac 上に Claude Code / Codex CLI のサインイン状態が必要です。
+- 通知は packaged app (`UsageKun.app`) での利用を想定しています。
 - 自分で署名しない限り、この app は unsigned です。
+
+## リリース履歴
+
+### v0.2.0
+
+今回の更新では、usage-kun を 5-hour と 1-week の両方を見やすく確認できる quota monitor として整理しました。
+
+- Claude Code / Codex の 5-hour window と 1-week window を正式な表示対象として追加しました。
+- 固定デスクトップメーターとメニューバー popover を再設計し、primary / secondary の quota bar を見やすくしました。
+- メニューバー表示は `usage` と残量メーターの compact な形に保ちました。
+- 公式 CLI usage sync の one-click onboarding を追加しました。
+- packaged app での低残量通知と reset 通知を追加しました。
+- 使わなくなった Admin API と Cookie/OAuth 系 code path を削除しました。
+- ローカル専用ファイル、build output、app bundle、release artifact の混入を防ぐ publication preflight を追加しました。
+
+詳細: [docs/release-notes-v0.2.0.md](docs/release-notes-v0.2.0.md)
+
+### v0.1.1
+
+この更新では、既存の Codex 表示ロジックは維持したまま、Claude Code の 5-hour 推定精度を重点的に改善しました。
+
+- Claude local JSONL の重複行を `(requestId, message.id)` のペアで除外し、ローカル推定の精度を改善しました。
+- 重複排除後の weighted token に合わせて、Claude の 5-hour cap 初期値を再較正しました。
+- opt-in の Claude 公式使用量 sync が成功した後、Claude cap を自動較正できるようにしました。
+- `swift run UsageKunCoreCheck --claude-estimate` で Claude のローカル推定を確認できるようにしました。
+- Opus / Fable / Mythos の価格判定と cache-write token の二重計上を修正しました。
+
+詳細: [docs/release-notes-v0.1.1.md](docs/release-notes-v0.1.1.md)
+
+### v0.1.0
+
+初回公開版です。
+
+- Claude / Codex の native macOS メニューバー使用量メーターを公開しました。
+- 固定デスクトップウィジェットを追加しました。
+- local-first な使用量表示を中心にしました。
+- privacy-first な credential handling と no telemetry を基本方針にしました。
 
 ## 開発
 
@@ -162,6 +207,18 @@ release 風の app bundle を作成:
 
 ```sh
 ./Scripts/package_app.sh
+```
+
+公開前 preflight を実行:
+
+```sh
+./Scripts/preflight_publication.sh
+```
+
+release 用 zip を作成:
+
+```sh
+./Scripts/package_release_zip.sh
 ```
 
 ## ライセンス

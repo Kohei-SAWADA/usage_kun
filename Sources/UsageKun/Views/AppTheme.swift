@@ -6,6 +6,7 @@ enum AppTheme {
     static let panel = Color(red: 0.032, green: 0.060, blue: 0.045)
     static let panelHover = Color(red: 0.052, green: 0.102, blue: 0.074)
     static let barTrack = Color(red: 0.18, green: 0.32, blue: 0.24).opacity(0.46)
+    static let accent = Color(red: 0.16, green: 1.00, blue: 0.52)
 
     static let textPrimary = Color(red: 0.88, green: 1.00, blue: 0.92)
     static let textMuted = Color(red: 0.56, green: 0.74, blue: 0.61)

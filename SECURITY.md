@@ -7,8 +7,8 @@ Please open a private security advisory if the repository is hosted on GitHub wi
 Useful reports include:
 
 - credential leakage
-- accidental logging of tokens or API keys
-- unsafe browser cookie access
+- accidental logging of tokens or credentials
+- unexpected browser cookie access
 - sending provider tokens to the wrong endpoint
 - reading files outside the documented local usage paths
 
@@ -18,9 +18,7 @@ This project is currently a small personal utility. Security fixes are expected 
 
 ## Security Principles
 
-- Credentials must stay in macOS Keychain.
 - Tokens must not be logged.
 - CLI sign-in tokens must be read-only and opt-in.
 - Provider data must not be mixed across providers.
-- Browser cookie access must remain explicit and opt-in.
-
+- Browser cookie access is not implemented. Any future browser-cookie feature should go through a separate security review before release.

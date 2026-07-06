@@ -2,6 +2,19 @@ import AppKit
 import SwiftUI
 import UsageKunCore
 
+extension UsageStatus {
+    var menuBarColor: NSColor {
+        switch self {
+        case .ok, .unknown:
+            .labelColor
+        case .warning:
+            .systemOrange
+        case .critical, .error:
+            .systemRed
+        }
+    }
+}
+
 enum StatusIconRenderer {
     static func image(percent: Double, status: UsageStatus) -> NSImage {
         let size = NSSize(width: 26, height: 18)

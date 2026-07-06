@@ -1,77 +1,48 @@
 import Foundation
 
-public enum BrowserSource: String, Codable, CaseIterable, Identifiable {
-    case chrome
-    case safari
-    case edge
-    case brave
-    case manual
-
-    public var id: String { rawValue }
-
-    public var displayName: String {
-        switch self {
-        case .chrome:
-            "Google Chrome"
-        case .safari:
-            "Safari"
-        case .edge:
-            "Microsoft Edge"
-        case .brave:
-            "Brave"
-        case .manual:
-            "Manual"
-        }
-    }
-}
-
 public struct AppConfig: Codable, Equatable {
     public var localLogEnabled: Bool
     public var claudeOfficialUsageEnabled: Bool
     public var codexOfficialUsageEnabled: Bool
-    public var openAIAdminEnabled: Bool
-    public var anthropicAdminEnabled: Bool
-    public var cookieOAuthEnabled: Bool
-    public var browserSource: BrowserSource
     public var refreshIntervalMinutes: Int
     public var desktopWidgetEnabled: Bool
     public var launchAtLoginEnabled: Bool
+    public var menuBarShowsNumbers: Bool
+    public var onboardingCompleted: Bool
+    public var notificationsEnabled: Bool
 
     public init(
         localLogEnabled: Bool = true,
         claudeOfficialUsageEnabled: Bool = false,
         codexOfficialUsageEnabled: Bool = false,
-        openAIAdminEnabled: Bool = false,
-        anthropicAdminEnabled: Bool = false,
-        cookieOAuthEnabled: Bool = false,
-        browserSource: BrowserSource = .chrome,
         refreshIntervalMinutes: Int = 5,
         desktopWidgetEnabled: Bool = true,
-        launchAtLoginEnabled: Bool = true
+        launchAtLoginEnabled: Bool = true,
+        menuBarShowsNumbers: Bool = false,
+        onboardingCompleted: Bool = false,
+        notificationsEnabled: Bool = false
     ) {
         self.localLogEnabled = localLogEnabled
         self.claudeOfficialUsageEnabled = claudeOfficialUsageEnabled
         self.codexOfficialUsageEnabled = codexOfficialUsageEnabled
-        self.openAIAdminEnabled = openAIAdminEnabled
-        self.anthropicAdminEnabled = anthropicAdminEnabled
-        self.cookieOAuthEnabled = cookieOAuthEnabled
-        self.browserSource = browserSource
         self.refreshIntervalMinutes = refreshIntervalMinutes
         self.desktopWidgetEnabled = desktopWidgetEnabled
         self.launchAtLoginEnabled = launchAtLoginEnabled
+        self.menuBarShowsNumbers = menuBarShowsNumbers
+        self.onboardingCompleted = onboardingCompleted
+        self.notificationsEnabled = notificationsEnabled
     }
 
     private enum CodingKeys: String, CodingKey {
         case localLogEnabled
         case claudeOfficialUsageEnabled
         case codexOfficialUsageEnabled
-        case openAIAdminEnabled
-        case anthropicAdminEnabled
-        case cookieOAuthEnabled
-        case browserSource
         case refreshIntervalMinutes
         case desktopWidgetEnabled
         case launchAtLoginEnabled
+        case menuBarShowsNumbers
+        case onboardingCompleted
+        case notificationsEnabled
     }
 
     public init(from decoder: Decoder) throws {
@@ -80,13 +51,12 @@ public struct AppConfig: Codable, Equatable {
         localLogEnabled = try container.decodeIfPresent(Bool.self, forKey: .localLogEnabled) ?? true
         claudeOfficialUsageEnabled = try container.decodeIfPresent(Bool.self, forKey: .claudeOfficialUsageEnabled) ?? false
         codexOfficialUsageEnabled = try container.decodeIfPresent(Bool.self, forKey: .codexOfficialUsageEnabled) ?? false
-        openAIAdminEnabled = try container.decodeIfPresent(Bool.self, forKey: .openAIAdminEnabled) ?? false
-        anthropicAdminEnabled = try container.decodeIfPresent(Bool.self, forKey: .anthropicAdminEnabled) ?? false
-        cookieOAuthEnabled = try container.decodeIfPresent(Bool.self, forKey: .cookieOAuthEnabled) ?? false
-        browserSource = try container.decodeIfPresent(BrowserSource.self, forKey: .browserSource) ?? .chrome
         refreshIntervalMinutes = try container.decodeIfPresent(Int.self, forKey: .refreshIntervalMinutes) ?? 5
         desktopWidgetEnabled = try container.decodeIfPresent(Bool.self, forKey: .desktopWidgetEnabled) ?? true
         launchAtLoginEnabled = try container.decodeIfPresent(Bool.self, forKey: .launchAtLoginEnabled) ?? true
+        menuBarShowsNumbers = try container.decodeIfPresent(Bool.self, forKey: .menuBarShowsNumbers) ?? false
+        onboardingCompleted = try container.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? false
+        notificationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? false
     }
 }
 

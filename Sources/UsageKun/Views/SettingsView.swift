@@ -29,6 +29,22 @@ struct SettingsView: View {
 
                     Divider().overlay(AppTheme.barTrack)
 
+                    ToggleRow(
+                        title: "Compact menu numbers",
+                        caption: "Use C/X percentages instead of the usage label and meter.",
+                        isOn: configBinding(\.menuBarShowsNumbers)
+                    )
+
+                    Divider().overlay(AppTheme.barTrack)
+
+                    ToggleRow(
+                        title: "Notifications",
+                        caption: "Alert when remaining drops below 25% / 10%, and when a window resets (works in the packaged app).",
+                        isOn: notificationsBinding
+                    )
+
+                    Divider().overlay(AppTheme.barTrack)
+
                     RefreshIntervalRow(minutes: refreshIntervalBinding)
                 }
 
@@ -40,7 +56,7 @@ struct SettingsView: View {
                     )
 
                     SettingsNote(
-                        text: "Only local usage logs are read."
+                        text: "Only local usage logs are read. Conversation text is not displayed or sent anywhere."
                     )
                 }
 
@@ -77,7 +93,6 @@ struct SettingsView: View {
             .padding(16)
         }
         .onAppear {
-            disableHiddenRemoteSources()
             launchAtLoginMessage = LaunchAtLoginService.apply(isEnabled: store.config.launchAtLoginEnabled)
                 ?? LaunchAtLoginService.statusMessage()
         }
@@ -118,19 +133,21 @@ struct SettingsView: View {
         )
     }
 
-    private func disableHiddenRemoteSources() {
-        guard store.config.openAIAdminEnabled
-                || store.config.anthropicAdminEnabled
-                || store.config.cookieOAuthEnabled else {
-            return
-        }
+    private var notificationsBinding: Binding<Bool> {
+        Binding(
+            get: { store.config.notificationsEnabled },
+            set: { value in
+                var config = store.config
+                config.notificationsEnabled = value
+                store.updateConfig(config)
 
-        var config = store.config
-        config.openAIAdminEnabled = false
-        config.anthropicAdminEnabled = false
-        config.cookieOAuthEnabled = false
-        store.updateConfig(config)
+                if value {
+                    UsageNotifier.requestAuthorizationIfPossible()
+                }
+            }
+        )
     }
+
 }
 
 private struct SettingsSection<Content: View>: View {

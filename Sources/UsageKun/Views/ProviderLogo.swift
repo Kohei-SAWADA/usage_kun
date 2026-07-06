@@ -14,11 +14,6 @@ struct ProviderLogo: View {
         case .codex:
             OpenAIMark(color: color)
                 .frame(width: size, height: size)
-        default:
-            Text(provider.mark)
-                .font(.system(size: size * 0.45, weight: .bold, design: .rounded))
-                .foregroundStyle(color)
-                .frame(width: size, height: size)
         }
     }
 }
