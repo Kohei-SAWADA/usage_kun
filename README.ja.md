@@ -252,6 +252,16 @@ AI 使用量 monitor や menu bar utility はすでに複数あります。usage
 
 ## リリース履歴
 
+### v0.3.1
+
+表示サイズの可変化を反映した patch release です。
+
+- provider 数に応じて表示サイズが変わる挙動を、公開版として更新しました。
+- Claude だけ / Codex だけの表示では popover と固定ホームメーターの高さが自動で小さくなり、両方表示に戻すと通常サイズに戻ります。
+- 上部の 5h メトリックと desktop status label も、表示中 provider に合わせて切り替わります。
+
+詳細: [docs/release-notes-v0.3.1.md](docs/release-notes-v0.3.1.md)
+
 ### v0.3.0
 
 プロバイダごとの表示切り替えを追加した release です。

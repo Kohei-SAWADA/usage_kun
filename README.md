@@ -252,6 +252,16 @@ The emphasis is on:
 
 ## Release History
 
+### v0.3.1
+
+Responsive layout polish.
+
+- Published the provider-aware variable sizing behavior as a patch release.
+- The popover and pinned home meter automatically use a smaller height in Claude-only or Codex-only mode, and expand again when both providers are visible.
+- The header metric and desktop status label follow the currently visible provider set instead of leaving empty two-provider spacing.
+
+Details: [docs/release-notes-v0.3.1.md](docs/release-notes-v0.3.1.md)
+
 ### v0.3.0
 
 Per-provider visibility.
