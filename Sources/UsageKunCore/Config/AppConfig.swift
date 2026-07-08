@@ -10,6 +10,8 @@ public struct AppConfig: Codable, Equatable {
     public var menuBarShowsNumbers: Bool
     public var onboardingCompleted: Bool
     public var notificationsEnabled: Bool
+    /// Claude plan for the local 5-hour estimate: "auto", "pro", "max_5x", or "max_20x".
+    public var claudePlanOverride: String
 
     public init(
         localLogEnabled: Bool = true,
@@ -20,7 +22,8 @@ public struct AppConfig: Codable, Equatable {
         launchAtLoginEnabled: Bool = true,
         menuBarShowsNumbers: Bool = false,
         onboardingCompleted: Bool = false,
-        notificationsEnabled: Bool = false
+        notificationsEnabled: Bool = false,
+        claudePlanOverride: String = "auto"
     ) {
         self.localLogEnabled = localLogEnabled
         self.claudeOfficialUsageEnabled = claudeOfficialUsageEnabled
@@ -31,6 +34,7 @@ public struct AppConfig: Codable, Equatable {
         self.menuBarShowsNumbers = menuBarShowsNumbers
         self.onboardingCompleted = onboardingCompleted
         self.notificationsEnabled = notificationsEnabled
+        self.claudePlanOverride = claudePlanOverride
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -43,6 +47,7 @@ public struct AppConfig: Codable, Equatable {
         case menuBarShowsNumbers
         case onboardingCompleted
         case notificationsEnabled
+        case claudePlanOverride
     }
 
     public init(from decoder: Decoder) throws {
@@ -57,6 +62,7 @@ public struct AppConfig: Codable, Equatable {
         menuBarShowsNumbers = try container.decodeIfPresent(Bool.self, forKey: .menuBarShowsNumbers) ?? false
         onboardingCompleted = try container.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? false
         notificationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? false
+        claudePlanOverride = try container.decodeIfPresent(String.self, forKey: .claudePlanOverride) ?? "auto"
     }
 }
 

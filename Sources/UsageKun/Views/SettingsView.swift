@@ -55,6 +55,10 @@ struct SettingsView: View {
                         isOn: configBinding(\.localLogEnabled)
                     )
 
+                    Divider().overlay(AppTheme.barTrack)
+
+                    ClaudePlanRow(selection: configBinding(\.claudePlanOverride))
+
                     SettingsNote(
                         text: "Only local usage logs are read. Conversation text is not displayed or sent anywhere."
                     )
@@ -205,6 +209,38 @@ private struct RefreshIntervalRow: View {
                     .labelsHidden()
                     .controlSize(.small)
             }
+        }
+    }
+}
+
+private struct ClaudePlanRow: View {
+    @Binding var selection: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Claude plan")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppTheme.textPrimary)
+
+                Text("Sets the 5-hour cap for the local Claude estimate. Auto reads the plan from ~/.claude.json; pick your plan manually if the estimate looks off. Official usage sync is always exact regardless of this setting.")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(AppTheme.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            Picker("", selection: $selection) {
+                Text("Auto").tag("auto")
+                Text("Pro").tag("pro")
+                Text("Max 5x").tag("max_5x")
+                Text("Max 20x").tag("max_20x")
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .controlSize(.small)
+            .frame(width: 96)
         }
     }
 }

@@ -68,6 +68,7 @@ public final class CompositeUsageService: UsageService {
 
     public func snapshots(now: Date) async -> [UsageSnapshot] {
         let config = configStore.load()
+        localLogService.claudePlanOverride = config.claudePlanOverride
         var snapshots: [UsageSnapshot] = []
 
         if config.localLogEnabled || config.claudeOfficialUsageEnabled || config.codexOfficialUsageEnabled {

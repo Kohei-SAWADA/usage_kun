@@ -52,7 +52,9 @@ struct UsageKunCoreCheck {
         expect(legacyConfig.notificationsEnabled == false, "notifications should default off for legacy config")
         expect(legacyConfig.claudeOfficialUsageEnabled == false, "official Claude sync should default off for legacy config")
         expect(legacyConfig.codexOfficialUsageEnabled == false, "official Codex sync should default off for legacy config")
+        expect(legacyConfig.claudePlanOverride == "auto", "Claude plan override should default to auto for legacy config")
 
+        checkClaudePlanResolution()
         checkOfficialUsageParsers(now: now)
         checkWeeklySnapshot(now: now)
         checkMenuBarEntries(now: now)
@@ -75,6 +77,71 @@ struct UsageKunCoreCheck {
         }
 
         print("UsageKunCoreCheck passed")
+    }
+
+    static func checkClaudePlanResolution() {
+        func resolve(
+            _ organizationType: String?,
+            tiers: [String] = [],
+            override: String = "auto"
+        ) -> ClaudePlanResolution {
+            LocalLogUsageService.resolveClaudePlan(
+                organizationType: organizationType,
+                rateLimitTiers: tiers,
+                override: override
+            )
+        }
+
+        expect(resolve("claude_pro").key == "claude_pro", "claude_pro org type should resolve to Pro")
+        expect(resolve("claude_pro").cap == 2_000_000, "Pro cap should be 2M weighted tokens")
+
+        // Real accounts report organizationType "claude_max" for both Max
+        // tiers; 5x vs 20x only shows up in the rate-limit tier strings.
+        expect(
+            resolve("claude_max", tiers: ["default_claude_max_20x"]).key == "claude_max_20x",
+            "Max with 20x rate-limit tier should resolve to Max 20x"
+        )
+        expect(
+            resolve("claude_max", tiers: ["default_claude_max_20x"]).cap == 40_000_000,
+            "Max 20x cap should be 40M weighted tokens"
+        )
+        expect(
+            resolve("claude_max", tiers: ["default_claude_max_5x"]).key == "claude_max_5x",
+            "Max with 5x rate-limit tier should resolve to Max 5x"
+        )
+        expect(
+            resolve("claude_max", tiers: [String]()).key == "claude_max",
+            "Max without tier info should stay generic Max"
+        )
+        expect(
+            resolve("claude_max", tiers: [String]()).cap == 10_000_000,
+            "generic Max should default to the 5x cap"
+        )
+        expect(
+            resolve("claude_max_20x").key == "claude_max_20x",
+            "legacy claude_max_20x org type should still resolve"
+        )
+        expect(
+            resolve(nil, tiers: ["default_claude_max_20x"]).key == "claude_max_20x",
+            "rate-limit tier alone should resolve Max 20x"
+        )
+
+        expect(resolve("claude_team").cap == 2_000_000, "Team should start from the Pro cap")
+        expect(resolve(nil).key == "estimated", "missing org type should resolve to estimated")
+        expect(resolve("").key == "estimated", "empty org type should resolve to estimated")
+
+        expect(
+            resolve("claude_pro", override: "max_20x").cap == 40_000_000,
+            "manual Max 20x override should win over detection"
+        )
+        expect(
+            resolve("claude_max", tiers: ["default_claude_max_20x"], override: "pro").key == "claude_pro",
+            "manual Pro override should win over detection"
+        )
+        expect(
+            resolve("claude_pro", override: "bogus").key == "claude_pro",
+            "unknown override value should fall back to auto detection"
+        )
     }
 
     static func checkOfficialUsageParsers(now: Date) {

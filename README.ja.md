@@ -233,6 +233,16 @@ AI 使用量 monitor や menu bar utility はすでに複数あります。usage
 
 ## リリース履歴
 
+### v0.2.2
+
+ローカル推定のプラン判別を修正した release です。
+
+- ローカル Claude 推定で Max 20x プランが Max 5x として扱われ、使用率が約 4 倍過大表示されていた問題を修正しました。5x/20x の区別が実際に入っている `~/.claude.json` の rate-limit tier フィールドを読むようにしました。
+- 自動判別が外れた場合のために「Claude plan」設定 (Auto / Pro / Max 5x / Max 20x) を追加しました。ローカル推定にのみ影響し、公式同期は常に正確です。
+- Codex の live rate-limit 読み取りで primary window がちょうど 300 分であることを要求しないようにしました。
+
+詳細: [docs/release-notes-v0.2.2.md](docs/release-notes-v0.2.2.md)
+
 ### v0.2.1
 
 packaging とセキュリティ強化の release です。機能変更はありません。

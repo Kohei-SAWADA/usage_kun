@@ -75,12 +75,14 @@
 - ブロックの開始時刻は時単位に切り捨て、そこから 5 時間で `reset` を表します。
 - 同一 API 応答が複数行に記録されるため、`requestId` と `message.id` が両方ある行はこのペアで重複排除します。
 - ブロック内の weighted token は `input + output + cache_creation_input_tokens + cache_read_input_tokens * 0.1` で計算します。`cache_creation_input_tokens` は `ephemeral_5m + ephemeral_1h` と同じ合計値なので二重に加算しません。
-- プランは `~/.claude.json` の `oauthAccount.organizationType` から検出します:
-  - `claude_pro` → 2,000,000 weighted tok cap
-  - `claude_max_5x` → 10,000,000 weighted tok cap
-  - `claude_max` (新しい Claude Code は倍率なしで書く) → 10,000,000 weighted tok cap (5x 相当を仮定)
-  - `claude_max_20x` → 40,000,000 weighted tok cap
+- プランは `~/.claude.json` の `oauthAccount.organizationType` と `oauthAccount.userRateLimitTier` / `oauthAccount.organizationRateLimitTier` から検出します。実際のアカウントでは Max 5x と 20x のどちらも `organizationType` は `claude_max` で、5x/20x の区別は rate-limit tier 文字列 (例: `default_claude_max_20x`) にだけ現れます:
+  - Pro (`claude_pro`) → 2,000,000 weighted tok cap
+  - Max + tier に `5x` → 10,000,000 weighted tok cap
+  - Max + tier に `20x` → 40,000,000 weighted tok cap
+  - Max で tier 不明 → 10,000,000 weighted tok cap (5x 相当を仮定)
+  - Team / Enterprise → 2,000,000 tok から開始し較正に任せます
   - 未検出時は 2,000,000 tok (Pro 相当) を仮置きします
+- 自動検出が外れる場合は、Settings の「Claude plan」で Pro / Max 5x / Max 20x を手動指定できます (local 推定にのみ影響し、公式同期の数値には影響しません)。
 - 各プランの cap は重複排除後の初期推定値です。公式使用量同期が成功したときは、同時点のローカル weighted 使用量と公式 used% から `~/Library/Application Support/usage_kun/claude_calibration.json` に cap を自動較正します。
 - `left% = 100 - used / cap * 100` を percent として表示します。Codex と同じく 35% 以下で warning、15% 以下で critical 扱いです。
 - weekly cap はローカル推定ではまだ percent 化せず、今週 token の detail として表示します。公式同期が有効な場合は `seven_day` の left% を 7 day バーに表示します。

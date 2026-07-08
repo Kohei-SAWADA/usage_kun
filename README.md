@@ -233,6 +233,16 @@ The emphasis is on:
 
 ## Release History
 
+### v0.2.2
+
+Plan-detection fixes for the local estimates.
+
+- Fixed Max 20x plans being treated as Max 5x in the local Claude estimate (usage was overstated ~4x). Detection now reads the rate-limit tier fields in `~/.claude.json`, where the 5x/20x distinction actually lives.
+- Added a "Claude plan" setting (Auto / Pro / Max 5x / Max 20x) for when auto-detection is wrong. Local estimate only; official sync is always exact.
+- The Codex live rate-limit reader no longer requires the primary window to be exactly 300 minutes.
+
+Details: [docs/release-notes-v0.2.2.md](docs/release-notes-v0.2.2.md)
+
 ### v0.2.1
 
 Packaging and hardening fixes; no feature changes.

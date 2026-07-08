@@ -7,6 +7,10 @@ public final class LocalLogUsageService: UsageService {
     private var lastClaudeBlockComputedAt: Date?
     private var lastClaudePlanKey: String?
 
+    /// "auto" resolves the plan from ~/.claude.json; "pro", "max_5x", and
+    /// "max_20x" force that plan's cap for the local estimate.
+    public var claudePlanOverride: String = "auto"
+
     public init(
         home: URL = FileManager.default.homeDirectoryForCurrentUser,
         calibrationStore: ClaudeCalibrationStore = ClaudeCalibrationStore()
@@ -332,7 +336,7 @@ public final class LocalLogUsageService: UsageService {
                   let rateLimits = event["rate_limits"] as? [String: Any],
                   let primaryObject = rateLimits["primary"] as? [String: Any],
                   let primary = CodexRateLimit(object: primaryObject),
-                  primary.windowMinutes == 300 else {
+                  Self.isCodexShortWindow(minutes: primary.windowMinutes) else {
                 continue
             }
 
@@ -418,7 +422,7 @@ public final class LocalLogUsageService: UsageService {
                   let rateLimits = payload["rate_limits"] as? [String: Any],
                   let primaryObject = rateLimits["primary"] as? [String: Any],
                   let primary = CodexRateLimit(object: primaryObject),
-                  primary.windowMinutes == 300 else {
+                  Self.isCodexShortWindow(minutes: primary.windowMinutes) else {
                 continue
             }
 
@@ -568,35 +572,77 @@ public final class LocalLogUsageService: UsageService {
 
     private func claudePlanCap() -> (cap: Double, label: String, key: String) {
         let path = home.appendingPathComponent(".claude.json")
-        let orgType: String
+        var organizationType: String?
+        var rateLimitTiers: [String] = []
         if let data = try? Data(contentsOf: path),
            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let oauth = json["oauthAccount"] as? [String: Any],
-           let type = oauth["organizationType"] as? String {
-            orgType = type.lowercased()
-        } else {
-            orgType = ""
+           let oauth = json["oauthAccount"] as? [String: Any] {
+            organizationType = oauth["organizationType"] as? String
+            for key in ["userRateLimitTier", "organizationRateLimitTier"] {
+                if let tier = oauth[key] as? String, !tier.isEmpty {
+                    rateLimitTiers.append(tier)
+                }
+            }
         }
 
-        let selection: ClaudePlanSelection
-        switch orgType {
-        case "claude_max_20x":
-            selection = ClaudePlanSelection(key: "claude_max_20x", label: "Max 20x", defaultCap: ClaudePlanCaps.max20x)
-        case "claude_max_5x", "claude_max5x":
-            selection = ClaudePlanSelection(key: "claude_max_5x", label: "Max 5x", defaultCap: ClaudePlanCaps.max5x)
-        case "claude_max":
-            selection = ClaudePlanSelection(key: "claude_max", label: "Max", defaultCap: ClaudePlanCaps.max5x)
-        case "claude_pro":
-            selection = ClaudePlanSelection(key: "claude_pro", label: "Pro", defaultCap: ClaudePlanCaps.pro)
+        let resolution = Self.resolveClaudePlan(
+            organizationType: organizationType,
+            rateLimitTiers: rateLimitTiers,
+            override: claudePlanOverride
+        )
+
+        if let calibration = calibrationStore.load(), calibration.planKey == resolution.key {
+            return (calibration.capEstimate, "\(resolution.label) (calibrated)", resolution.key)
+        }
+
+        return (resolution.cap, resolution.label, resolution.key)
+    }
+
+    /// Maps the account fields in ~/.claude.json to a 5-hour cap estimate.
+    /// organizationType is plain "claude_max" for both Max tiers; the 5x/20x
+    /// distinction only appears in the rate-limit tier strings
+    /// (e.g. "default_claude_max_20x"), so both must be considered.
+    public nonisolated static func resolveClaudePlan(
+        organizationType: String?,
+        rateLimitTiers: [String],
+        override: String
+    ) -> ClaudePlanResolution {
+        switch override {
+        case "pro":
+            return ClaudePlanResolution(cap: ClaudePlanCaps.pro, label: "Pro (manual)", key: "claude_pro")
+        case "max_5x":
+            return ClaudePlanResolution(cap: ClaudePlanCaps.max5x, label: "Max 5x (manual)", key: "claude_max_5x")
+        case "max_20x":
+            return ClaudePlanResolution(cap: ClaudePlanCaps.max20x, label: "Max 20x (manual)", key: "claude_max_20x")
         default:
-            selection = ClaudePlanSelection(key: "estimated", label: "estimated", defaultCap: ClaudePlanCaps.pro)
+            break
         }
 
-        if let calibration = calibrationStore.load(), calibration.planKey == selection.key {
-            return (calibration.capEstimate, "\(selection.label) (calibrated)", selection.key)
+        let orgType = (organizationType ?? "").lowercased()
+        let tierText = rateLimitTiers.joined(separator: " ").lowercased()
+
+        if orgType.contains("max") || tierText.contains("max") {
+            if orgType.contains("20x") || tierText.contains("20x") {
+                return ClaudePlanResolution(cap: ClaudePlanCaps.max20x, label: "Max 20x", key: "claude_max_20x")
+            }
+            if orgType.contains("5x") || tierText.contains("5x") {
+                return ClaudePlanResolution(cap: ClaudePlanCaps.max5x, label: "Max 5x", key: "claude_max_5x")
+            }
+            return ClaudePlanResolution(cap: ClaudePlanCaps.max5x, label: "Max", key: "claude_max")
         }
 
-        return (selection.defaultCap, selection.label, selection.key)
+        if orgType.contains("pro") {
+            return ClaudePlanResolution(cap: ClaudePlanCaps.pro, label: "Pro", key: "claude_pro")
+        }
+
+        if orgType.contains("team") || orgType.contains("enterprise") {
+            // No public per-seat cap; start from the Pro cap and let official
+            // sync calibration adjust it.
+            let label = orgType.contains("team") ? "Team (estimated)" : "Enterprise (estimated)"
+            return ClaudePlanResolution(cap: ClaudePlanCaps.pro, label: label, key: orgType)
+        }
+
+        return ClaudePlanResolution(cap: ClaudePlanCaps.pro, label: "estimated", key: "estimated")
     }
 
     private static func roundedDownToHour(_ date: Date) -> Date {
@@ -710,6 +756,14 @@ public final class LocalLogUsageService: UsageService {
         } catch {
             return (1, "")
         }
+    }
+
+    /// Codex reports the short rate-limit window as 300 minutes today, but
+    /// the exact value varies by plan and rollout. Accepting a range keeps
+    /// live rows from being silently dropped when it shifts; the weekly
+    /// window (10080 minutes) still never matches.
+    private nonisolated static func isCodexShortWindow(minutes: Int) -> Bool {
+        minutes >= 60 && minutes <= 1440
     }
 
     private static func startOfDay(for date: Date) -> Date {
@@ -846,10 +900,16 @@ private enum ClaudePlanCaps {
     static let max20x: Double = 40_000_000
 }
 
-private struct ClaudePlanSelection {
-    let key: String
-    let label: String
-    let defaultCap: Double
+public struct ClaudePlanResolution: Equatable {
+    public let cap: Double
+    public let label: String
+    public let key: String
+
+    public init(cap: Double, label: String, key: String) {
+        self.cap = cap
+        self.label = label
+        self.key = key
+    }
 }
 
 struct ClaudeUsageEvent {
