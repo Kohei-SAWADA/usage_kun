@@ -41,10 +41,10 @@ struct UsageDashboardView: View {
                                 )
                             }
 
-                            if store.snapshots.isEmpty {
+                            if visibleSnapshots.isEmpty {
                                 EmptyUsageView()
                             } else {
-                                ForEach(store.snapshots) { snapshot in
+                                ForEach(visibleSnapshots) { snapshot in
                                     UsageCardView(snapshot: snapshot)
                                 }
                             }
@@ -60,7 +60,7 @@ struct UsageDashboardView: View {
                 }
             }
         }
-        .frame(width: 420, height: 680)
+        .frame(width: dashboardSize.width, height: dashboardSize.height)
         .background(AppTheme.background)
         .onAppear(perform: checkOnboardingIfNeeded)
     }
@@ -80,11 +80,11 @@ struct UsageDashboardView: View {
 
                 Spacer()
 
-                StatusPill(status: store.overallStatus)
+                StatusPill(status: visibleOverallStatus)
             }
 
             HStack(spacing: 10) {
-                MetricBlock(title: "Codex 5h", value: store.codexFiveHourLabel)
+                MetricBlock(title: primaryMetricTitle, value: primaryMetricValue)
                 MetricBlock(title: "Next move", value: nextActionLabel)
             }
         }
@@ -93,7 +93,7 @@ struct UsageDashboardView: View {
     }
 
     private var nextActionLabel: String {
-        switch store.codexStatus {
+        switch visibleOverallStatus {
         case .ok:
             "Go"
         case .warning:
@@ -104,6 +104,50 @@ struct UsageDashboardView: View {
             "Setup"
         case .error:
             "Check"
+        }
+    }
+
+    private var primaryMetricTitle: String {
+        guard let snapshot = primaryMetricSnapshot else {
+            return "Usage 5h"
+        }
+
+        return "\(shortName(for: snapshot.provider)) 5h"
+    }
+
+    private var primaryMetricValue: String {
+        primaryMetricSnapshot?.percentDisplay ?? "--%"
+    }
+
+    private var primaryMetricSnapshot: UsageSnapshot? {
+        if visibleSnapshots.count == 1 {
+            return visibleSnapshots.first
+        }
+
+        return visibleSnapshots.first { $0.provider == .codex } ?? visibleSnapshots.first
+    }
+
+    private var visibleSnapshots: [UsageSnapshot] {
+        store.snapshots.filter { AppWindowLayout.isProviderEnabled($0.provider, in: store.config) }
+    }
+
+    private var visibleOverallStatus: UsageStatus {
+        visibleSnapshots.map(\.status).max() ?? .unknown
+    }
+
+    private var dashboardSize: CGSize {
+        AppWindowLayout.popoverSize(
+            selectedTab: router.selectedTab,
+            providerCount: AppWindowLayout.enabledProviderCount(in: store.config)
+        )
+    }
+
+    private func shortName(for provider: UsageProvider) -> String {
+        switch provider {
+        case .claude:
+            "Claude"
+        case .codex:
+            "Codex"
         }
     }
 

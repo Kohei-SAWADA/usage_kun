@@ -258,6 +258,7 @@ AI 使用量 monitor や menu bar utility はすでに複数あります。usage
 
 - Settings > Providers に Claude / Codex のチェック欄を追加しました。チェックしたプロバイダだけがメニューバー、popover、デスクトップメーターに表示され、チェックを外したプロバイダは取得自体を行いません。既定では両方チェック済みです。
 - Usage Kun の app icon を `.app` に同梱し、README のスクリーンショットを popover、固定ホームメーター、provider settings の新しい画像に更新しました。
+- Claude だけ / Codex だけの表示では、popover と固定ホームメーターの高さが自動で小さくなるようにしました。上部の 5h メトリックも表示中 provider に合わせて切り替わります。
 
 詳細: [docs/release-notes-v0.3.0.md](docs/release-notes-v0.3.0.md)
 

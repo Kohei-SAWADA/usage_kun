@@ -95,7 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupPopover() {
         let popover = NSPopover()
         popover.behavior = .transient
-        popover.contentSize = NSSize(width: 420, height: 680)
+        popover.contentSize = currentPopoverSize()
         popover.contentViewController = NSHostingController(
             rootView: UsageDashboardView(store: usageStore, router: dashboardRouter)
         )
@@ -103,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupDesktopWidget() {
-        let size = NSSize(width: 312, height: 260)
+        let size = currentDesktopSize()
         let panel = InteractiveDesktopPanel(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -146,14 +146,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.updateStatusIcon()
+                self?.syncWindowSizes()
             }
             .store(in: &cancellables)
 
         usageStore.$config
             .receive(on: DispatchQueue.main)
             .sink { [weak self] config in
+                self?.syncWindowSizes()
                 self?.syncDesktopWidgetVisibility(isEnabled: config.desktopWidgetEnabled)
                 self?.scheduleRefreshTimer(intervalMinutes: config.refreshIntervalMinutes)
+            }
+            .store(in: &cancellables)
+
+        dashboardRouter.$selectedTab
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.syncWindowSizes()
             }
             .store(in: &cancellables)
 
@@ -204,6 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         usageStore.refresh()
+        syncWindowSizes()
 
         if !popover.isShown {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
@@ -309,11 +319,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let desktopWindow else { return }
 
         if isEnabled {
+            syncDesktopWindowSize()
             positionDesktopWidget()
             desktopWindow.orderFrontRegardless()
         } else {
             desktopWindow.orderOut(nil)
         }
+    }
+
+    private func syncWindowSizes() {
+        popover?.contentSize = currentPopoverSize()
+        syncDesktopWindowSize()
+    }
+
+    private func syncDesktopWindowSize() {
+        guard let desktopWindow else { return }
+        let newSize = currentDesktopSize()
+
+        if desktopWindow.frame.size != newSize {
+            desktopWindow.setContentSize(newSize)
+        }
+
+        positionDesktopWidget()
+    }
+
+    private func currentPopoverSize() -> NSSize {
+        AppWindowLayout.popoverSize(
+            selectedTab: dashboardRouter.selectedTab,
+            providerCount: AppWindowLayout.enabledProviderCount(in: usageStore.config)
+        )
+    }
+
+    private func currentDesktopSize() -> NSSize {
+        AppWindowLayout.desktopSize(
+            providerCount: AppWindowLayout.enabledProviderCount(in: usageStore.config)
+        )
     }
 
     private func positionDesktopWidget() {

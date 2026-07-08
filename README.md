@@ -258,6 +258,7 @@ Per-provider visibility.
 
 - Added Settings > Providers with Claude and Codex checkboxes. Only checked providers are shown in the menu bar, popover, and desktop meter; unchecked providers are not fetched at all. Both are checked by default.
 - Added the Usage Kun app icon to the packaged macOS app and refreshed the README screenshots for the popover, pinned home meter, and provider settings.
+- Resized the popover and pinned home meter automatically for Claude-only or Codex-only display, and made the header metric follow the visible provider.
 
 Details: [docs/release-notes-v0.3.0.md](docs/release-notes-v0.3.0.md)
 

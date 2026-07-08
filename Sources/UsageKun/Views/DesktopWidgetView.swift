@@ -18,7 +18,10 @@ struct DesktopWidgetView: View {
             Spacer(minLength: 0)
         }
         .padding(14)
-        .frame(width: 312, height: 260)
+        .frame(
+            width: AppWindowLayout.desktopWidth,
+            height: AppWindowLayout.desktopSize(providerCount: enabledProviderCount).height
+        )
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(AppTheme.background.opacity(0.96))
@@ -63,15 +66,23 @@ struct DesktopWidgetView: View {
 
     private var displaySnapshots: [UsageSnapshot] {
         let primaryProviders: [UsageProvider] = [.codex, .claude]
-        let primary = primaryProviders.compactMap { provider in
-            store.snapshots.first { $0.provider == provider }
+        let primary: [UsageSnapshot] = primaryProviders.compactMap { provider in
+            guard AppWindowLayout.isProviderEnabled(provider, in: store.config) else {
+                return nil
+            }
+
+            return store.snapshots.first { $0.provider == provider }
         }
 
         if !primary.isEmpty {
             return Array(primary.prefix(2))
         }
 
-        return Array(store.snapshots.prefix(2))
+        return Array(store.snapshots.filter { AppWindowLayout.isProviderEnabled($0.provider, in: store.config) }.prefix(2))
+    }
+
+    private var enabledProviderCount: Int {
+        AppWindowLayout.enabledProviderCount(in: store.config)
     }
 
     private var nextActionLabel: String {
