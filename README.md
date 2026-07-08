@@ -4,6 +4,10 @@
   <img src="assets/usage-kun-thumbnail.png" alt="usage-kun thumbnail showing an AI usage meter for Claude and Codex">
 </p>
 
+<p align="center">
+  <img src="assets/usage-kun-icon.png" alt="Usage Kun app icon" width="160">
+</p>
+
 <p align="right">
   <strong>English</strong> |
   <a href="README.ja.md">日本語</a>
@@ -17,22 +21,30 @@ This project is not affiliated with, endorsed by, or sponsored by OpenAI, Anthro
 
 ## Screenshots
 
-usage-kun is designed to stay visible without becoming a dashboard. The pinned desktop meter keeps both the 5-hour primary window and 1-week secondary window in the corner of the screen, while the menu bar popover shows the fuller provider breakdown when needed.
+usage-kun is designed to stay visible without becoming a dashboard. Click the menu bar icon in the top-right of macOS to open the popover, keep the pinned home meter at the top-left of the desktop, and use Settings to show Codex only, Claude only, or both.
 
 <p align="center">
-  <img src="assets/screenshots/pinned-desktop-meter.png" alt="Pinned desktop usage meter showing Codex and Claude Code 5-hour and 1-week usage bars in the top-left corner of macOS." width="420">
+  <img src="assets/screenshots/menu-bar-popover.png" alt="Menu bar popover opened from the top-right macOS icon, showing Codex and Claude Code usage cards with 5-hour and 1-week limits." width="420">
 </p>
 
 <p align="center">
-  <em>Pinned desktop meter with compact 5-hour and 1-week quota bars.</em>
+  <em>Menu bar popover opened from the top-right macOS icon.</em>
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/menu-bar-popover.png" alt="Menu bar popover showing Codex and Claude Code usage cards with 5-hour and 1-week limits, reset timing, sync source, and settings tab." width="520">
+  <img src="assets/screenshots/pinned-desktop-meter.png" alt="Pinned home meter showing Codex and Claude Code usage at the top-left of the macOS desktop." width="420">
 </p>
 
 <p align="center">
-  <em>Menu bar popover with detailed provider cards, reset timing, and quick settings access.</em>
+  <em>Pinned home meter at the top-left of the desktop.</em>
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/settings-providers.png" alt="Settings screen with provider checkboxes for showing only Codex, only Claude, or both." width="420">
+</p>
+
+<p align="center">
+  <em>Settings screen with provider checkboxes for Codex-only, Claude-only, or both-provider display.</em>
 </p>
 
 ## Features
@@ -202,8 +214,14 @@ Tests/UsageKunCoreCheck/
 assets/screenshots/
   pinned-desktop-meter.png
   menu-bar-popover.png
+  settings-providers.png
+
+assets/
+  usage-kun-thumbnail.png
+  usage-kun-icon.png
 
 Packaging/
+  AppIcon.icns
   Info.plist
 
 Scripts/
@@ -239,6 +257,7 @@ The emphasis is on:
 Per-provider visibility.
 
 - Added Settings > Providers with Claude and Codex checkboxes. Only checked providers are shown in the menu bar, popover, and desktop meter; unchecked providers are not fetched at all. Both are checked by default.
+- Added the Usage Kun app icon to the packaged macOS app and refreshed the README screenshots for the popover, pinned home meter, and provider settings.
 
 Details: [docs/release-notes-v0.3.0.md](docs/release-notes-v0.3.0.md)
 

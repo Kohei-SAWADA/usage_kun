@@ -24,10 +24,12 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
 cp ".build/release/UsageKun" "$EXECUTABLE"
 cp "Packaging/Info.plist" "$PLIST"
+cp "Packaging/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
 chmod 755 "$EXECUTABLE"
 
 test -x "$EXECUTABLE"
 test -f "$PLIST"
+test -f "$RESOURCES_DIR/AppIcon.icns"
 
 # Sign the whole bundle. Without this the executable only carries the linker's
 # bare ad-hoc signature (no sealed resources, Info.plist not bound), and
