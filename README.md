@@ -61,19 +61,29 @@ usage-kun is designed to stay visible without becoming a dashboard. The pinned d
 2. Unzip it and move `UsageKun.app` to `/Applications` (or anywhere you like).
 3. Open `UsageKun.app`.
 
-The app is signed but not notarized (no paid Apple Developer account), so on first launch macOS shows a Gatekeeper warning such as "Apple could not verify UsageKun is free of malware". This is expected for any non-notarized app; it does not mean the download is broken. To open it:
+### First Launch: "Apple could not verify UsageKun is free of malware"
 
-1. Try to open the app once and dismiss the dialog.
-2. Open System Settings > Privacy & Security, scroll down, and click "Open Anyway" next to the UsageKun message.
-3. Confirm in the dialog that follows.
+On first launch, macOS blocks the app with a dialog like:
 
-Alternatively, from Terminal:
+> Apple could not verify "UsageKun" is free of malware that may harm your Mac or compromise your privacy.
+
+**This is expected and does not mean the download is broken.** The app is signed but not notarized by Apple (notarization requires a paid Apple Developer account), so macOS cannot vouch for it automatically. You only need to approve it once:
+
+1. In the warning dialog, click **Done** (do NOT click "Move to Trash").
+2. Open **System Settings** > **Privacy & Security**.
+3. Scroll down to the **Security** section. You will see a message saying "UsageKun" was blocked.
+4. Click **Open Anyway** next to that message.
+5. In the confirmation dialog, click **Open Anyway** again and authenticate with Touch ID or your password.
+
+The app opens normally from then on; the warning does not come back until you download a new version.
+
+Alternatively, you can clear the quarantine flag from Terminal instead (same effect, no dialogs):
 
 ```sh
 xattr -d com.apple.quarantine /Applications/UsageKun.app
 ```
 
-If you prefer not to trust a downloaded binary, build it yourself from source below — the result is identical and needs no Gatekeeper approval.
+If you prefer not to trust a downloaded binary at all, build it yourself from source below — the result is identical and needs no Gatekeeper approval.
 
 ### Run From Source
 
@@ -139,7 +149,7 @@ open UsageKun.app
 4. Replace your old `UsageKun.app` with the new one.
 5. Open the new `UsageKun.app`.
 
-On first launch of the new version, macOS may show the Gatekeeper warning again; approve it the same way as in [Install From The Release ZIP](#install-from-the-release-zip). If official Claude sync is enabled, macOS may ask for Claude Code Keychain access again after the update.
+On first launch of the new version, macOS may show the "could not verify" warning again; approve it the same way as in [First Launch](#first-launch-apple-could-not-verify-usagekun-is-free-of-malware). If official Claude sync is enabled, macOS may ask for Claude Code Keychain access again after the update.
 
 ## Data Sources
 

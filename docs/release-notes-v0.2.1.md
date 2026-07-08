@@ -16,6 +16,22 @@ This is a packaging and hardening release. There are no feature changes.
 
 - README (English and Japanese) now documents installing from the release zip, including the expected one-time Gatekeeper approval for a non-notarized app.
 
-## Note on Gatekeeper
+## First Launch: "Apple could not verify UsageKun is free of malware"
 
-The app is ad-hoc signed but not notarized, so the first launch of a downloaded copy still shows a Gatekeeper warning ("Apple could not verify..."). Approve it once via System Settings > Privacy & Security > Open Anyway. This is expected for any non-notarized app and is different from the previous "damaged" error, which prevented the app from being opened at all.
+The app is signed but not notarized, so the first launch of a downloaded copy still shows a Gatekeeper warning ("Apple could not verify "UsageKun" is free of malware..."). This is expected for any non-notarized app and is different from the previous "damaged" error, which prevented the app from being opened at all. Approve it once:
+
+1. In the warning dialog, click **Done** (do NOT click "Move to Trash").
+2. Open **System Settings** > **Privacy & Security**.
+3. Scroll down to the **Security** section, where "UsageKun" is listed as blocked.
+4. Click **Open Anyway**, then confirm with **Open Anyway** again and authenticate.
+
+日本語: 初回起動時に「Apple は、"UsageKun" にマルウェアが含まれていないことを確認できませんでした」と表示された場合:
+
+1. 警告 dialog で **「完了」** を押します(「ゴミ箱に入れる」は押さないでください)。
+2. **システム設定** > **プライバシーとセキュリティ** を開きます。
+3. 下にスクロールし、**セキュリティ** 欄の「"UsageKun" はブロックされました」の横の **「このまま開く」** を押します。
+4. 確認 dialog でもう一度 **「このまま開く」** を押し、Touch ID または password で認証します。
+
+Alternatively, from Terminal: `xattr -d com.apple.quarantine /Applications/UsageKun.app`
+
+The approval is needed only once per downloaded version.
