@@ -76,10 +76,14 @@ public final class CompositeUsageService: UsageService {
                 ? await localLogService.snapshots(now: now)
                 : []
 
-            var codex = localSnapshots.first { $0.provider == .codex }
-            var claude = localSnapshots.first { $0.provider == .claude }
+            var codex = config.codexProviderEnabled
+                ? localSnapshots.first { $0.provider == .codex }
+                : nil
+            var claude = config.claudeProviderEnabled
+                ? localSnapshots.first { $0.provider == .claude }
+                : nil
 
-            if config.codexOfficialUsageEnabled {
+            if config.codexProviderEnabled, config.codexOfficialUsageEnabled {
                 switch await cliOAuthService.codexSnapshot(now: now) {
                 case .success(let snapshot):
                     codex = snapshot
@@ -88,7 +92,7 @@ public final class CompositeUsageService: UsageService {
                 }
             }
 
-            if config.claudeOfficialUsageEnabled {
+            if config.claudeProviderEnabled, config.claudeOfficialUsageEnabled {
                 switch await cliOAuthService.claudeSnapshot(now: now) {
                 case .success(let snapshot):
                     claude = snapshot
@@ -110,7 +114,14 @@ public final class CompositeUsageService: UsageService {
         }
 
         if snapshots.isEmpty {
-            snapshots = disabledSnapshots(now: now)
+            snapshots = disabledSnapshots(now: now).filter { snapshot in
+                switch snapshot.provider {
+                case .claude:
+                    return config.claudeProviderEnabled
+                case .codex:
+                    return config.codexProviderEnabled
+                }
+            }
         }
 
         return snapshots

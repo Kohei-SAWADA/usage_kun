@@ -41,6 +41,7 @@ usage-kun is designed to stay visible without becoming a dashboard. The pinned d
 - Compact menu bar popover with provider cards
 - Optional pinned desktop widget for at-a-glance usage
 - 5-hour primary and 1-week secondary quota bars for Claude Code and Codex
+- Per-provider checkboxes to show only Claude, only Codex, or both
 - Local-log usage estimates when official sync is unavailable
 - Optional official usage sync for Claude Code and Codex CLI sign-ins
 - Low-usage and reset notifications for the packaged app
@@ -232,6 +233,14 @@ The emphasis is on:
 - The app is ad-hoc signed but not notarized, so first launch of a downloaded copy needs a one-time Gatekeeper approval.
 
 ## Release History
+
+### v0.3.0
+
+Per-provider visibility.
+
+- Added Settings > Providers with Claude and Codex checkboxes. Only checked providers are shown in the menu bar, popover, and desktop meter; unchecked providers are not fetched at all. Both are checked by default.
+
+Details: [docs/release-notes-v0.3.0.md](docs/release-notes-v0.3.0.md)
 
 ### v0.2.2
 

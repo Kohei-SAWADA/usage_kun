@@ -53,7 +53,10 @@ struct UsageKunCoreCheck {
         expect(legacyConfig.claudeOfficialUsageEnabled == false, "official Claude sync should default off for legacy config")
         expect(legacyConfig.codexOfficialUsageEnabled == false, "official Codex sync should default off for legacy config")
         expect(legacyConfig.claudePlanOverride == "auto", "Claude plan override should default to auto for legacy config")
+        expect(legacyConfig.claudeProviderEnabled == true, "Claude provider should default visible for legacy config")
+        expect(legacyConfig.codexProviderEnabled == true, "Codex provider should default visible for legacy config")
 
+        await checkProviderVisibility(now: now)
         checkClaudePlanResolution()
         checkOfficialUsageParsers(now: now)
         checkWeeklySnapshot(now: now)
@@ -77,6 +80,45 @@ struct UsageKunCoreCheck {
         }
 
         print("UsageKunCoreCheck passed")
+    }
+
+    @MainActor
+    static func checkProviderVisibility(now: Date) async {
+        let home = FileManager.default.temporaryDirectory
+            .appendingPathComponent("UsageKunCoreCheck-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: home)
+        }
+        try? FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+
+        let configStore = AppConfigStore(configURL: home.appendingPathComponent("config.json"))
+        let service = await CompositeUsageService(
+            configStore: configStore,
+            localLogService: LocalLogUsageService(home: home)
+        )
+
+        try? configStore.save(AppConfig())
+        let both = await service.snapshots(now: now)
+        expect(both.map(\.provider) == [.codex, .claude], "both providers should show by default")
+
+        try? configStore.save(AppConfig(codexProviderEnabled: false))
+        let claudeOnly = await service.snapshots(now: now)
+        expect(claudeOnly.map(\.provider) == [.claude], "unchecked Codex should be hidden")
+
+        try? configStore.save(AppConfig(claudeProviderEnabled: false))
+        let codexOnly = await service.snapshots(now: now)
+        expect(codexOnly.map(\.provider) == [.codex], "unchecked Claude should be hidden")
+
+        try? configStore.save(AppConfig(claudeProviderEnabled: false, codexProviderEnabled: false))
+        let none = await service.snapshots(now: now)
+        expect(none.isEmpty, "hiding both providers should produce no snapshots")
+
+        try? configStore.save(AppConfig(localLogEnabled: false, codexProviderEnabled: false))
+        let disabledClaude = await service.snapshots(now: now)
+        expect(
+            disabledClaude.map(\.provider) == [.claude],
+            "disabled-sync placeholders should also respect provider visibility"
+        )
     }
 
     static func checkClaudePlanResolution() {

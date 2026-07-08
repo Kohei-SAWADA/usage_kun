@@ -75,7 +75,9 @@ struct DesktopWidgetView: View {
     }
 
     private var nextActionLabel: String {
-        switch store.codexStatus {
+        // Overall status covers whichever providers are enabled; codexStatus
+        // alone would stick at "Setup" when Codex is hidden in Settings.
+        switch store.overallStatus {
         case .ok:
             "Go"
         case .warning:

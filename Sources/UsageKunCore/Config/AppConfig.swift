@@ -12,6 +12,9 @@ public struct AppConfig: Codable, Equatable {
     public var notificationsEnabled: Bool
     /// Claude plan for the local 5-hour estimate: "auto", "pro", "max_5x", or "max_20x".
     public var claudePlanOverride: String
+    /// Providers to show. Unchecked providers are not fetched or displayed.
+    public var claudeProviderEnabled: Bool
+    public var codexProviderEnabled: Bool
 
     public init(
         localLogEnabled: Bool = true,
@@ -23,7 +26,9 @@ public struct AppConfig: Codable, Equatable {
         menuBarShowsNumbers: Bool = false,
         onboardingCompleted: Bool = false,
         notificationsEnabled: Bool = false,
-        claudePlanOverride: String = "auto"
+        claudePlanOverride: String = "auto",
+        claudeProviderEnabled: Bool = true,
+        codexProviderEnabled: Bool = true
     ) {
         self.localLogEnabled = localLogEnabled
         self.claudeOfficialUsageEnabled = claudeOfficialUsageEnabled
@@ -35,6 +40,8 @@ public struct AppConfig: Codable, Equatable {
         self.onboardingCompleted = onboardingCompleted
         self.notificationsEnabled = notificationsEnabled
         self.claudePlanOverride = claudePlanOverride
+        self.claudeProviderEnabled = claudeProviderEnabled
+        self.codexProviderEnabled = codexProviderEnabled
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -48,6 +55,8 @@ public struct AppConfig: Codable, Equatable {
         case onboardingCompleted
         case notificationsEnabled
         case claudePlanOverride
+        case claudeProviderEnabled
+        case codexProviderEnabled
     }
 
     public init(from decoder: Decoder) throws {
@@ -63,6 +72,8 @@ public struct AppConfig: Codable, Equatable {
         onboardingCompleted = try container.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? false
         notificationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? false
         claudePlanOverride = try container.decodeIfPresent(String.self, forKey: .claudePlanOverride) ?? "auto"
+        claudeProviderEnabled = try container.decodeIfPresent(Bool.self, forKey: .claudeProviderEnabled) ?? true
+        codexProviderEnabled = try container.decodeIfPresent(Bool.self, forKey: .codexProviderEnabled) ?? true
     }
 }
 

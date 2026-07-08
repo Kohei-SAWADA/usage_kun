@@ -8,6 +8,26 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
+                SettingsSection(title: "Providers", subtitle: "show / hide") {
+                    ToggleRow(
+                        title: "Claude",
+                        caption: "Show Claude usage in the menu bar, popover, and desktop meter.",
+                        isOn: configBinding(\.claudeProviderEnabled)
+                    )
+
+                    Divider().overlay(AppTheme.barTrack)
+
+                    ToggleRow(
+                        title: "Codex",
+                        caption: "Show Codex usage in the menu bar, popover, and desktop meter.",
+                        isOn: configBinding(\.codexProviderEnabled)
+                    )
+
+                    SettingsNote(
+                        text: "Unchecked providers are not fetched or displayed anywhere in the app."
+                    )
+                }
+
                 SettingsSection(title: "Meter", subtitle: "display") {
                     ToggleRow(
                         title: "Launch at login",
