@@ -55,6 +55,28 @@ usage-kun is designed to stay visible without becoming a dashboard. The pinned d
 
 ## Quick Start
 
+### Install From The Release ZIP
+
+1. Download the latest `UsageKun-macOS.zip` from [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest).
+2. Unzip it and move `UsageKun.app` to `/Applications` (or anywhere you like).
+3. Open `UsageKun.app`.
+
+The app is signed but not notarized (no paid Apple Developer account), so on first launch macOS shows a Gatekeeper warning such as "Apple could not verify UsageKun is free of malware". This is expected for any non-notarized app; it does not mean the download is broken. To open it:
+
+1. Try to open the app once and dismiss the dialog.
+2. Open System Settings > Privacy & Security, scroll down, and click "Open Anyway" next to the UsageKun message.
+3. Confirm in the dialog that follows.
+
+Alternatively, from Terminal:
+
+```sh
+xattr -d com.apple.quarantine /Applications/UsageKun.app
+```
+
+If you prefer not to trust a downloaded binary, build it yourself from source below — the result is identical and needs no Gatekeeper approval.
+
+### Run From Source
+
 Run from source:
 
 ```sh
@@ -117,7 +139,7 @@ open UsageKun.app
 4. Replace your old `UsageKun.app` with the new one.
 5. Open the new `UsageKun.app`.
 
-If macOS shows the usual unsigned-app warning, open the app the same way you did for the previous version. If official Claude sync is enabled, macOS may ask for Claude Code Keychain access again after the update.
+On first launch of the new version, macOS may show the Gatekeeper warning again; approve it the same way as in [Install From The Release ZIP](#install-from-the-release-zip). If official Claude sync is enabled, macOS may ask for Claude Code Keychain access again after the update.
 
 ## Data Sources
 
@@ -197,9 +219,21 @@ The emphasis is on:
 - Claude local-log quota estimates are best-effort. They deduplicate repeated JSONL rows by `requestId` and `message.id`, and can self-calibrate after opt-in official Claude usage sync succeeds.
 - Official sync requires existing Claude Code / Codex CLI sign-in state on the same Mac.
 - Notifications are intended for the packaged `UsageKun.app` build.
-- The app is unsigned unless you sign it yourself.
+- The app is ad-hoc signed but not notarized, so first launch of a downloaded copy needs a one-time Gatekeeper approval.
 
 ## Release History
+
+### v0.2.1
+
+Packaging and hardening fixes; no feature changes.
+
+- Fixed the release zip shipping an app whose incomplete signature made Gatekeeper reject downloaded copies as "damaged". The bundle is now fully ad-hoc signed with sealed resources and verified during packaging.
+- Stopped archiving extended attributes as AppleDouble `._*` files in the release zip.
+- Codex local databases are now opened with `sqlite3 -readonly -batch`.
+- Restricted the CI workflow token to read-only access.
+- Documented release-zip installation and the one-time Gatekeeper approval.
+
+Details: [docs/release-notes-v0.2.1.md](docs/release-notes-v0.2.1.md)
 
 ### v0.2.0
 

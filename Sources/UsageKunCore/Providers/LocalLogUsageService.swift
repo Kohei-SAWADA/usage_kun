@@ -696,7 +696,9 @@ public final class LocalLogUsageService: UsageService {
         let pipe = Pipe()
 
         process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
-        process.arguments = extraArguments + [database.path, query]
+        // -readonly: never write to (or create lock/journal files next to)
+        // another app's database. -batch: no interactive prompts.
+        process.arguments = ["-readonly", "-batch"] + extraArguments + [database.path, query]
         process.standardOutput = pipe
         process.standardError = Pipe()
 

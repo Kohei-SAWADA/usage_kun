@@ -29,4 +29,18 @@ chmod 755 "$EXECUTABLE"
 test -x "$EXECUTABLE"
 test -f "$PLIST"
 
-echo "Built $APP_DIR"
+# Sign the whole bundle. Without this the executable only carries the linker's
+# bare ad-hoc signature (no sealed resources, Info.plist not bound), and
+# Gatekeeper rejects downloaded copies as "damaged".
+# CODESIGN_IDENTITY defaults to ad-hoc ("-"); set it to a Developer ID
+# identity to produce a notarizable build.
+CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
+BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")"
+xattr -cr "$APP_DIR"
+codesign --force --options runtime \
+  --identifier "$BUNDLE_ID" \
+  --sign "$CODESIGN_IDENTITY" \
+  "$APP_DIR"
+codesign --verify --strict --deep "$APP_DIR"
+
+echo "Built and signed $APP_DIR"
