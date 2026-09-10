@@ -23,6 +23,13 @@ struct SettingsView: View {
                         isOn: configBinding(\.codexProviderEnabled)
                     )
 
+                    Divider().overlay(AppTheme.barTrack)
+                    ToggleRow(
+                        title: "Gemini (Antigravity)",
+                        caption: "When enabled, read Gemini quota from the running Antigravity IDE on this Mac. Tokens are never saved or logged; missing values stay unknown.",
+                        isOn: configBinding(\.antigravityProviderEnabled)
+                    )
+
                     SettingsNote(
                         text: "Unchecked providers are not fetched or displayed anywhere in the app."
                     )
@@ -51,7 +58,7 @@ struct SettingsView: View {
 
                     ToggleRow(
                         title: "Compact menu numbers",
-                        caption: "Use C/X percentages instead of the usage label and meter.",
+                        caption: "Show percentages as C (Claude), X (Codex), and G (Gemini in Antigravity).",
                         isOn: configBinding(\.menuBarShowsNumbers)
                     )
 

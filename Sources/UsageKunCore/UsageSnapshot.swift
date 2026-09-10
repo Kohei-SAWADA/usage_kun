@@ -4,11 +4,14 @@ import SwiftUI
 public enum UsageProvider: String, CaseIterable, Identifiable {
     case claude
     case codex
+    case antigravity
 
     public var id: String { rawValue }
 
     public var displayName: String {
         switch self {
+        case .antigravity:
+            "Gemini (Antigravity)"
         case .claude:
             "Claude Code"
         case .codex:
@@ -18,6 +21,8 @@ public enum UsageProvider: String, CaseIterable, Identifiable {
 
     public var mark: String {
         switch self {
+        case .antigravity:
+            "G"
         case .claude:
             "C"
         case .codex:
@@ -27,6 +32,8 @@ public enum UsageProvider: String, CaseIterable, Identifiable {
 
     public var accent: Color {
         switch self {
+        case .antigravity:
+            Color(red: 0.30, green: 0.70, blue: 1.00)
         case .codex:
             Color(red: 0.66, green: 0.44, blue: 1.00)
         case .claude:
@@ -135,6 +142,7 @@ public struct UsageSnapshot: Identifiable, Equatable {
     public let secondaryTitle: String
     public let secondaryValue: String?
     public let weekly: UsageWindow?
+    public let primaryWindowMinutes: Int?
 
     public var id: UsageProvider { provider }
 
@@ -152,7 +160,8 @@ public struct UsageSnapshot: Identifiable, Equatable {
         metricTitle: String = "Usage",
         secondaryTitle: String = "Reset",
         secondaryValue: String? = nil,
-        weekly: UsageWindow? = nil
+        weekly: UsageWindow? = nil,
+        primaryWindowMinutes: Int? = nil
     ) {
         self.provider = provider
         self.status = status
@@ -168,6 +177,23 @@ public struct UsageSnapshot: Identifiable, Equatable {
         self.secondaryTitle = secondaryTitle
         self.secondaryValue = secondaryValue
         self.weekly = weekly
+        self.primaryWindowMinutes = primaryWindowMinutes ?? (provider == .codex ? nil : 300)
+    }
+
+    public var primaryWindowLabel: String {
+        guard let minutes = primaryWindowMinutes, minutes > 0 else { return "LIMIT" }
+        if minutes % 10080 == 0 { return "\(minutes / 10080)W" }
+        if minutes % 1440 == 0 { return "\(minutes / 1440)D" }
+        if minutes % 60 == 0 { return "\(minutes / 60)H" }
+        return "\(minutes)M"
+    }
+
+    public var primaryWindowTitle: String {
+        switch primaryWindowMinutes {
+        case 300: return "5-HOUR"
+        case 10080: return "1-WEEK"
+        default: return primaryWindowLabel
+        }
     }
 
     public var usedDisplay: String {

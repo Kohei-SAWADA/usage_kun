@@ -42,3 +42,7 @@ Claude Code credentials remain in the Keychain item created by Claude Code itsel
 ## Endpoint Stability
 
 Some integrations rely on provider endpoints and local CLI file formats that may change. If an integration breaks, usage-kun should fail with a visible message and fall back to local estimates when possible.
+
+## Optional Gemini (Antigravity) quota
+
+When enabled in Settings, usage_kun discovers the current user's running Antigravity language server and reads quota over a loopback connection. Its ephemeral CSRF credential stays in memory and is never saved or logged. This integration does not send the credential to a remote endpoint. It requires Antigravity to be running and signed in.

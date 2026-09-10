@@ -8,22 +8,25 @@ struct UsageCardView: View {
         let accent = snapshot.provider.accent
 
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
                 ProviderMark(provider: snapshot.provider, accent: accent)
 
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 8) {
-                        Text(snapshot.provider.displayName)
+                        Text(snapshot.provider == .antigravity ? "Gemini" : snapshot.provider.displayName)
                             .font(.system(size: 18, weight: .semibold, design: .rounded))
                             .foregroundStyle(AppTheme.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
 
-                        Text(snapshot.status.label.uppercased())
+                        Text((snapshot.provider == .antigravity && snapshot.status == .unknown ? "Unknown" : snapshot.status.label).uppercased())
                             .font(.system(size: 9, weight: .black, design: .monospaced))
                             .foregroundStyle(accent)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
                             .background(accent.opacity(0.13))
                             .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                            .fixedSize()
                     }
 
                     Text(snapshot.source.uppercased())
@@ -32,15 +35,16 @@ struct UsageCardView: View {
                         .lineLimit(1)
                 }
 
-                Spacer(minLength: 10)
+                Spacer(minLength: 4)
 
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(snapshot.percentDisplay)
                         .font(.system(size: 31, weight: .black, design: .rounded))
                         .foregroundStyle(accent)
                         .monospacedDigit()
+                        .fixedSize()
 
-                    Text("5-HOUR")
+                    Text(snapshot.primaryWindowTitle)
                         .font(.system(size: 9, weight: .black, design: .monospaced))
                         .foregroundStyle(AppTheme.textFaint)
                 }
@@ -52,7 +56,7 @@ struct UsageCardView: View {
                 Text(message)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(AppTheme.textMuted)
-                    .lineLimit(2)
+                    .lineLimit(snapshot.provider == .antigravity ? nil : 2)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -99,11 +103,11 @@ private struct WindowMeterStack: View {
     var body: some View {
         VStack(spacing: 11) {
             LimitMeterRow(
-                title: "5-HOUR LIMIT",
+                title: "\(snapshot.primaryWindowTitle) \(snapshot.provider == .antigravity ? "LEFT" : "LIMIT")",
                 subtitle: "PRIMARY WINDOW",
                 percent: snapshot.percent,
                 resetAt: snapshot.resetAt,
-                detail: snapshot.percent == nil ? snapshot.usedDisplay : nil,
+                detail: snapshot.percent == nil ? (snapshot.provider == .antigravity ? "Unknown" : snapshot.usedDisplay) : nil,
                 accent: accent,
                 barHeight: 10,
                 isPrimary: true
@@ -115,7 +119,7 @@ private struct WindowMeterStack: View {
                     subtitle: "SECONDARY QUOTA",
                     percent: weekly.percentLeft,
                     resetAt: weekly.resetAt,
-                    detail: weekly.detail,
+                    detail: weekly.percentLeft == nil && snapshot.provider == .antigravity ? "Unknown" : weekly.detail,
                     accent: accent,
                     barHeight: 5,
                     isPrimary: false
@@ -233,7 +237,7 @@ private struct UsageBar: View {
 
                 RoundedRectangle(cornerRadius: height / 2, style: .continuous)
                     .fill(accent.opacity(muted ? 0.68 : 1))
-                    .frame(width: max(height, fill))
+                    .frame(width: percent > 0 ? max(height, fill) : 0)
                     .shadow(color: accent.opacity(muted ? 0.16 : 0.40), radius: muted ? 3 : 9, y: 0)
             }
         }

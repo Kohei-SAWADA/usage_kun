@@ -252,6 +252,14 @@ AI 使用量 monitor や menu bar utility はすでに複数あります。usage
 
 ## リリース履歴
 
+### v0.4.0
+
+- Gemini（Antigravity）の使用量表示を設定から有効にできます。
+- 固定パネルの更新・設定ボタンを修正し、設定を独立したウィンドウで開きます。
+- Codex の制限期間に応じて「1W」「5H」を表示します。週制限だけの場合に「5H」と表示される問題を修正しました。
+
+詳細: [docs/release-notes-v0.4.0.md](docs/release-notes-v0.4.0.md)
+
 ### v0.3.1
 
 表示サイズの可変化を反映した patch release です。

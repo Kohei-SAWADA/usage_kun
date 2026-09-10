@@ -1,5 +1,41 @@
 # providers
 
+## Gemini in Antigravity (macOS)
+
+Enable **Settings → Providers → Gemini (Antigravity)** to read the running
+Antigravity IDE's **Models & Usage → Gemini Models** quota. This is separate
+from Gemini API billing and the Gemini consumer app. The option defaults to
+off when loading existing configurations; Codex and Claude choices are preserved.
+
+- The provider discovers the current user's Antigravity language-server process
+  and its listening ports. The local CSRF credential stays in memory.
+- It calls the loopback `RetrieveUserQuotaSummary` RPC with
+  `{"request":{},"forceRefresh":true}`, matching the installed Models UI.
+  Antigravity handles its own account authentication. UsageKun does not read,
+  save, or refresh Antigravity OAuth tokens.
+- Only the Gemini group's `gemini-5h` and `gemini-weekly` buckets are used.
+  Their explicit `remainingFraction` values become remaining percentages, and
+  `resetTime` supplies each reset time. The menu meter uses the lower remaining
+  value only when both windows are known.
+- An explicit zero means exhausted quota. Missing, null, boolean, nonnumeric,
+  nonfinite, or out-of-range fractions remain unknown. Other model groups,
+  credit balances, disabled buckets, and legacy per-model quota defaults never
+  substitute for Gemini quota. Disabled buckets remain unknown, matching the
+  installed UI's suppression of their percentages.
+- Local requests bypass proxies, refuse redirects, and use an ephemeral session
+  without a cookie store or cache. Responses and credentials are not logged.
+- Keep Antigravity IDE open and signed in. If no compatible server or quota is
+  available, the app shows unknown values with instructions to open Models and
+  refresh. It never assumes a reset restored the allowance.
+
+The local RPC is an internal interface and can change with Antigravity updates.
+The public explanation of the two Gemini windows is in
+[Antigravity's Models documentation](https://www.antigravity.google/docs/models/).
+The Windows implementation is unchanged and does not include this provider.
+
+Validation: `swift build`, `swift run UsageKunCoreCheck`, and the optional
+`swift run UsageKunCoreCheck --live-antigravity` (prints quota fields only).
+
 ## 公式使用量同期 (CLI sign-in)
 
 初回バナーまたは Settings の `Official usage` でプロバイダごとに opt-in できます。CLI が保存しているサインイントークンを読み取り専用で再利用し、各ベンダー公式の使用量エンドポイントから CLI 表示と同じ数値を取得します。

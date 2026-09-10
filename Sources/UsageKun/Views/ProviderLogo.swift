@@ -8,6 +8,8 @@ struct ProviderLogo: View {
 
     var body: some View {
         switch provider {
+        case .antigravity:
+            Image(systemName: "sparkles").font(.system(size: size)).foregroundStyle(color)
         case .claude:
             AnthropicMark(color: color)
                 .frame(width: size, height: size)

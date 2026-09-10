@@ -25,11 +25,12 @@ struct DesktopWidgetView: View {
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(AppTheme.background.opacity(0.96))
-                .overlay(WidgetGrid())
+                .overlay(WidgetGrid().allowsHitTesting(false))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(AppTheme.barTrack, lineWidth: 1)
+                .allowsHitTesting(false)
         )
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
@@ -65,7 +66,7 @@ struct DesktopWidgetView: View {
     }
 
     private var displaySnapshots: [UsageSnapshot] {
-        let primaryProviders: [UsageProvider] = [.codex, .claude]
+        let primaryProviders: [UsageProvider] = [.codex, .claude, .antigravity]
         let primary: [UsageSnapshot] = primaryProviders.compactMap { provider in
             guard AppWindowLayout.isProviderEnabled(provider, in: store.config) else {
                 return nil
@@ -75,10 +76,10 @@ struct DesktopWidgetView: View {
         }
 
         if !primary.isEmpty {
-            return Array(primary.prefix(2))
+            return Array(primary.prefix(3))
         }
 
-        return Array(store.snapshots.filter { AppWindowLayout.isProviderEnabled($0.provider, in: store.config) }.prefix(2))
+        return Array(store.snapshots.filter { AppWindowLayout.isProviderEnabled($0.provider, in: store.config) }.prefix(3))
     }
 
     private var enabledProviderCount: Int {
@@ -96,7 +97,7 @@ struct DesktopWidgetView: View {
         case .critical:
             "Hold off"
         case .unknown:
-            "Setup"
+            displaySnapshots.contains { $0.provider == .antigravity && $0.status == .unknown } ? "Check" : "Setup"
         case .error:
             "Check"
         }
@@ -122,7 +123,9 @@ private struct DesktopIconButton: View {
         .overlay(
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .stroke(AppTheme.barTrack.opacity(0.8), lineWidth: 1)
+                .allowsHitTesting(false)
         )
+        .accessibilityLabel(help)
         .help(help)
     }
 }
@@ -149,8 +152,9 @@ private struct DesktopWidgetRow: View {
                         .font(.system(size: 12, weight: .black, design: .rounded))
                         .foregroundStyle(AppTheme.textPrimary)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.85)
 
-                    Text("5-HOUR PRIMARY")
+                    Text(snapshot.provider == .antigravity ? "ANTIGRAVITY • \(snapshot.primaryWindowTitle)" : "\(snapshot.primaryWindowTitle) PRIMARY")
                         .font(.system(size: 8, weight: .black, design: .monospaced))
                         .foregroundStyle(AppTheme.textFaint)
                         .tracking(0.5)
@@ -168,10 +172,10 @@ private struct DesktopWidgetRow: View {
 
             VStack(spacing: 7) {
                 DesktopLimitLine(
-                    title: "5h",
+                    title: snapshot.primaryWindowLabel,
                     percent: snapshot.percent,
                     resetAt: snapshot.resetAt,
-                    detail: snapshot.percent == nil ? snapshot.usedDisplay : nil,
+                    detail: missingQuotaDetail,
                     accent: accent,
                     height: 8,
                     isPrimary: true
@@ -182,7 +186,7 @@ private struct DesktopWidgetRow: View {
                         title: "1w",
                         percent: weekly.percentLeft,
                         resetAt: weekly.resetAt,
-                        detail: weekly.detail,
+                        detail: weekly.percentLeft == nil && snapshot.provider == .antigravity ? "Unknown" : weekly.detail,
                         accent: accent,
                         height: 4,
                         isPrimary: false
@@ -199,6 +203,14 @@ private struct DesktopWidgetRow: View {
                         .stroke(accent.opacity(0.18), lineWidth: 1)
                 )
         )
+    }
+
+    private var missingQuotaDetail: String? {
+        guard snapshot.percent == nil else { return nil }
+        if snapshot.provider == .antigravity {
+            return "Quota unavailable · open usage panel"
+        }
+        return snapshot.usedDisplay
     }
 }
 
@@ -277,7 +289,7 @@ private struct DesktopWidgetBar: View {
 
                 RoundedRectangle(cornerRadius: height / 2, style: .continuous)
                     .fill(accent.opacity(muted ? 0.66 : 1))
-                    .frame(width: max(height, fill))
+                    .frame(width: percent > 0 ? max(height, fill) : 0)
                     .shadow(color: accent.opacity(muted ? 0.14 : 0.34), radius: muted ? 3 : 7)
             }
         }

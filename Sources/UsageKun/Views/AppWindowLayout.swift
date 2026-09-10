@@ -7,11 +7,13 @@ enum AppWindowLayout {
     static let desktopWidth: CGFloat = 312
 
     static func enabledProviderCount(in config: AppConfig) -> Int {
-        [config.codexProviderEnabled, config.claudeProviderEnabled].filter { $0 }.count
+        [config.codexProviderEnabled, config.claudeProviderEnabled, config.antigravityProviderEnabled].filter { $0 }.count
     }
 
     static func isProviderEnabled(_ provider: UsageProvider, in config: AppConfig) -> Bool {
         switch provider {
+        case .antigravity:
+            return config.antigravityProviderEnabled
         case .claude:
             return config.claudeProviderEnabled
         case .codex:
@@ -49,12 +51,14 @@ enum AppWindowLayout {
             return 92
         case 1:
             return 178
+        case 2:
+            return 274
         default:
-            return 260
+            return 364
         }
     }
 
     private static func normalizedProviderCount(_ providerCount: Int) -> Int {
-        min(max(providerCount, 0), 2)
+        min(max(providerCount, 0), 3)
     }
 }

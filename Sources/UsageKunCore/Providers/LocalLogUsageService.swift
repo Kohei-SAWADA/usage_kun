@@ -20,10 +20,14 @@ public final class LocalLogUsageService: UsageService {
     }
 
     public func snapshots(now: Date) async -> [UsageSnapshot] {
-        [
-            codexSnapshot(now: now),
-            claudeSnapshot(now: now)
-        ]
+        await snapshots(now: now, providers: [.codex, .claude])
+    }
+
+    public func snapshots(now: Date, providers: Set<UsageProvider>) async -> [UsageSnapshot] {
+        var result: [UsageSnapshot] = []
+        if providers.contains(.codex) { result.append(codexSnapshot(now: now)) }
+        if providers.contains(.claude) { result.append(claudeSnapshot(now: now)) }
+        return result
     }
 
     public func recordClaudeOfficialSample(usedPercent: Double, now: Date) {
@@ -113,7 +117,7 @@ public final class LocalLogUsageService: UsageService {
                     percentLeft: Double(secondaryLeft),
                     resetAt: secondaryExpired ? nil : secondary.resetsAt
                 )
-            } else if let weekTokens = localStats.weekTokens {
+            } else if primary.windowMinutes != 10080, let weekTokens = localStats.weekTokens {
                 weekly = UsageWindow(
                     percentLeft: nil,
                     resetAt: nil,
@@ -125,8 +129,8 @@ public final class LocalLogUsageService: UsageService {
             let messageSuffix = localStats.todayThreads.map { "Today: \($0) threads." } ?? ""
             let rawUsedPercent = primaryExpired ? 0 : Int(primary.usedPercent.rounded())
             var messageHead = primaryExpired
-                ? "5 hour window reset. Waiting for the next Codex call to refresh the live limit."
-                : "Showing 5 hour left from General usage limits. Raw used value is \(rawUsedPercent)%."
+                ? "Usage window reset. Waiting for the next Codex call to refresh the live limit."
+                : "Showing remaining quota from General usage limits. Raw used value is \(rawUsedPercent)%."
             // The logged value only updates while Codex is running, so flag stale data:
             // the real used % can only have decayed since it was recorded.
             let ageMinutes = Int(now.timeIntervalSince(rateLimit.updatedAt) / 60)
@@ -147,10 +151,11 @@ public final class LocalLogUsageService: UsageService {
                 message: message,
                 source: rateLimit.source,
                 unit: "%",
-                metricTitle: "5 hour left",
+                metricTitle: "Usage left",
                 secondaryTitle: "Reset",
                 secondaryValue: resetText,
-                weekly: weekly
+                weekly: weekly,
+                primaryWindowMinutes: primary.windowMinutes > 0 ? primary.windowMinutes : nil
             )
         }
 
@@ -334,14 +339,11 @@ public final class LocalLogUsageService: UsageService {
                   let timestamp = Double(parts[0]),
                   let event = codexRateLimitEvent(from: String(parts[1])),
                   let rateLimits = event["rate_limits"] as? [String: Any],
-                  let primaryObject = rateLimits["primary"] as? [String: Any],
-                  let primary = CodexRateLimit(object: primaryObject),
-                  Self.isCodexShortWindow(minutes: primary.windowMinutes) else {
+                  let windows = Self.codexWindows(rateLimits) else {
                 continue
             }
 
-            let secondaryObject = rateLimits["secondary"] as? [String: Any]
-            let secondary = secondaryObject.flatMap(CodexRateLimit.init(object:))
+            let (primary, secondary) = windows
             return CodexRateLimitSnapshot(
                 updatedAt: Date(timeIntervalSince1970: timestamp),
                 primary: primary,
@@ -351,6 +353,20 @@ public final class LocalLogUsageService: UsageService {
         }
 
         return nil
+    }
+
+    private static func codexWindows(_ object: [String: Any]) -> (CodexRateLimit, CodexRateLimit?)? {
+        var primary = (object["primary"] as? [String: Any]).flatMap(CodexRateLimit.init(object:))
+        var secondary = (object["secondary"] as? [String: Any]).flatMap(CodexRateLimit.init(object:))
+        if primary == nil { primary = secondary; secondary = nil }
+        if let first = primary, let second = secondary,
+           first.windowMinutes > 0, second.windowMinutes > 0,
+           first.windowMinutes > second.windowMinutes {
+            primary = second
+            secondary = first
+        }
+        guard let primary else { return nil }
+        return (primary, secondary)
     }
 
     private func codexRateLimitEvent(from text: String) -> [String: Any]? {
@@ -420,15 +436,12 @@ public final class LocalLogUsageService: UsageService {
                   let payload = object["payload"] as? [String: Any],
                   payload["type"] as? String == "token_count",
                   let rateLimits = payload["rate_limits"] as? [String: Any],
-                  let primaryObject = rateLimits["primary"] as? [String: Any],
-                  let primary = CodexRateLimit(object: primaryObject),
-                  Self.isCodexShortWindow(minutes: primary.windowMinutes) else {
+                  let windows = Self.codexWindows(rateLimits) else {
                 continue
             }
 
-            let secondaryObject = rateLimits["secondary"] as? [String: Any]
+            let (primary, secondary) = windows
             let updatedAt = Self.parseDate(object["timestamp"] as? String) ?? fileModificationDate(file)
-            let secondary = secondaryObject.flatMap(CodexRateLimit.init(object:))
 
             onSnapshot(
                 CodexRateLimitSnapshot(
@@ -456,7 +469,7 @@ public final class LocalLogUsageService: UsageService {
                 message: "~/.claude/projects was not found. Sign in and use Claude Code to sync local usage.",
                 source: "local",
                 unit: "tok",
-                metricTitle: "5 hour left",
+                metricTitle: "Usage left",
                 secondaryTitle: "Reset"
             )
         }
@@ -483,7 +496,7 @@ public final class LocalLogUsageService: UsageService {
                 message: "No Claude usage rows found yet. usage_kun checks Claude Code conversation logs.",
                 source: "local ~/.claude",
                 unit: "tok",
-                metricTitle: "5 hour left",
+                metricTitle: "Usage left",
                 secondaryTitle: "Reset"
             )
         }
@@ -525,7 +538,7 @@ public final class LocalLogUsageService: UsageService {
             message: messageParts.joined(separator: ". ") + ".",
             source: "local ~/.claude",
             unit: "%",
-            metricTitle: "5 hour left",
+            metricTitle: "Usage left",
             secondaryTitle: "Reset",
             secondaryValue: resetText,
             weekly: weekly
@@ -756,14 +769,6 @@ public final class LocalLogUsageService: UsageService {
         } catch {
             return (1, "")
         }
-    }
-
-    /// Codex reports the short rate-limit window as 300 minutes today, but
-    /// the exact value varies by plan and rollout. Accepting a range keeps
-    /// live rows from being silently dropped when it shifts; the weekly
-    /// window (10080 minutes) still never matches.
-    private nonisolated static func isCodexShortWindow(minutes: Int) -> Bool {
-        minutes >= 60 && minutes <= 1440
     }
 
     private static func startOfDay(for date: Date) -> Date {

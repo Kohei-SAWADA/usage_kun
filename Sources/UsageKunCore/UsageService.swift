@@ -55,15 +55,20 @@ public final class CompositeUsageService: UsageService {
     private let configStore: AppConfigStore
     private let localLogService: LocalLogUsageService
     private let cliOAuthService: CLIOAuthUsageService
+    private let antigravitySnapshot: @MainActor (Date) async -> UsageSnapshot
 
     public init(
         configStore: AppConfigStore,
         localLogService: LocalLogUsageService = LocalLogUsageService(),
-        cliOAuthService: CLIOAuthUsageService = CLIOAuthUsageService()
+        cliOAuthService: CLIOAuthUsageService = CLIOAuthUsageService(),
+        antigravitySnapshot: @escaping @MainActor (Date) async -> UsageSnapshot = { now in
+            await AntigravityUsageService().snapshot(now: now)
+        }
     ) {
         self.configStore = configStore
         self.localLogService = localLogService
         self.cliOAuthService = cliOAuthService
+        self.antigravitySnapshot = antigravitySnapshot
     }
 
     public func snapshots(now: Date) async -> [UsageSnapshot] {
@@ -73,7 +78,10 @@ public final class CompositeUsageService: UsageService {
 
         if config.localLogEnabled || config.claudeOfficialUsageEnabled || config.codexOfficialUsageEnabled {
             let localSnapshots = config.localLogEnabled
-                ? await localLogService.snapshots(now: now)
+                ? await localLogService.snapshots(now: now, providers: Set([
+                    config.codexProviderEnabled ? UsageProvider.codex : nil,
+                    config.claudeProviderEnabled ? UsageProvider.claude : nil
+                ].compactMap { $0 }))
                 : []
 
             var codex = config.codexProviderEnabled
@@ -113,17 +121,19 @@ public final class CompositeUsageService: UsageService {
             }
         }
 
-        if snapshots.isEmpty {
-            snapshots = disabledSnapshots(now: now).filter { snapshot in
-                switch snapshot.provider {
-                case .claude:
-                    return config.claudeProviderEnabled
-                case .codex:
-                    return config.codexProviderEnabled
-                }
+        // Preserve a visible setup state for each selected provider even when
+        // another provider already returned live data.
+        for placeholder in disabledSnapshots(now: now) {
+            let enabled = placeholder.provider == .codex ? config.codexProviderEnabled : config.claudeProviderEnabled
+            if enabled, !snapshots.contains(where: { $0.provider == placeholder.provider }) {
+                snapshots.append(placeholder)
             }
         }
+        snapshots.sort { $0.provider == .codex && $1.provider != .codex }
 
+        if config.antigravityProviderEnabled, configStore.load().antigravityProviderEnabled, !Task.isCancelled {
+            snapshots.append(await antigravitySnapshot(now))
+        }
         return snapshots
     }
 
@@ -149,7 +159,8 @@ public final class CompositeUsageService: UsageService {
                 metricTitle: local.metricTitle,
                 secondaryTitle: local.secondaryTitle,
                 secondaryValue: local.secondaryValue,
-                weekly: local.weekly
+                weekly: local.weekly,
+                primaryWindowMinutes: local.primaryWindowMinutes
             )
         }
 
@@ -212,6 +223,8 @@ public final class UsageStore: ObservableObject {
 
     private let service: UsageService
     private let configStore: AppConfigStore
+    private var configRevision = 0
+    private var refreshPending = false
 
     public init(
         service: UsageService,
@@ -227,13 +240,15 @@ public final class UsageStore: ObservableObject {
     }
 
     public nonisolated static func menuBarEntries(snapshots: [UsageSnapshot]) -> [MenuBarEntry] {
-        [UsageProvider.claude, .codex].compactMap { provider in
+        [UsageProvider.claude, .codex, .antigravity].compactMap { provider in
             guard let snapshot = snapshots.first(where: { $0.provider == provider }) else {
                 return nil
             }
 
             let effectivePercent: Double?
-            if let primary = snapshot.percent {
+            if provider == .antigravity, snapshot.weekly?.percentLeft == nil {
+                effectivePercent = nil
+            } else if let primary = snapshot.percent {
                 effectivePercent = min(primary, snapshot.weekly?.percentLeft ?? 100)
             } else {
                 effectivePercent = nil
@@ -248,7 +263,9 @@ public final class UsageStore: ObservableObject {
     }
 
     public var mostConstrainedPercent: Double? {
-        menuBarEntries.compactMap(\.percentLeft).min()
+        let entries = menuBarEntries
+        guard !entries.contains(where: { $0.percentLeft == nil }) else { return nil }
+        return entries.compactMap(\.percentLeft).min()
     }
 
     public var codexFiveHourLabel: String {
@@ -273,18 +290,36 @@ public final class UsageStore: ObservableObject {
     }
 
     public func refresh() {
-        guard !isRefreshing else { return }
+        guard !isRefreshing else {
+            refreshPending = true
+            return
+        }
         isRefreshing = true
+        let revision = configRevision
 
         Task { @MainActor in
             let result = await service.snapshots(now: Date())
-            snapshots = result
+            // A provider toggle during an in-flight fetch must take effect
+            // immediately after that fetch, rather than waiting for the timer.
+            if revision == configRevision { snapshots = result }
             isRefreshing = false
+            if refreshPending {
+                refreshPending = false
+                refresh()
+            }
         }
     }
 
     public func updateConfig(_ newConfig: AppConfig) {
+        configRevision += 1
         config = newConfig
+        snapshots.removeAll { snapshot in
+            switch snapshot.provider {
+            case .claude: !newConfig.claudeProviderEnabled
+            case .codex: !newConfig.codexProviderEnabled
+            case .antigravity: !newConfig.antigravityProviderEnabled
+            }
+        }
 
         do {
             try configStore.save(newConfig)

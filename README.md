@@ -13,7 +13,7 @@
   <a href="README.ja.md">日本語</a>
 </p>
 
-usage-kun is a small, privacy-first macOS menu bar app for keeping Claude and Codex usage visible while you work.
+usage-kun is a small, privacy-first macOS menu bar app for keeping Claude, Codex, and optional Gemini (Antigravity) usage visible while you work.
 
 It is built as a personal utility: a compact usage meter rather than a full analytics dashboard. It reads local CLI usage data by default and can optionally reuse Claude Code / Codex CLI sign-in tokens in read-only mode for official 5-hour and 1-week quota numbers. It does not store, refresh, or log those tokens.
 
@@ -52,8 +52,9 @@ usage-kun is designed to stay visible without becoming a dashboard. Click the me
 - Native macOS menu bar app built with SwiftPM, AppKit, and SwiftUI
 - Compact menu bar popover with provider cards
 - Optional pinned desktop widget for at-a-glance usage
-- 5-hour primary and 1-week secondary quota bars for Claude Code and Codex
-- Per-provider checkboxes to show only Claude, only Codex, or both
+- Duration-aware Codex quota labels, including weekly-only plans, plus Claude Code quota bars
+- Optional Gemini quota from the running Antigravity IDE
+- Per-provider checkboxes for Claude, Codex, and Gemini (Antigravity)
 - Local-log usage estimates when official sync is unavailable
 - Optional official usage sync for Claude Code and Codex CLI sign-ins
 - Low-usage and reset notifications for the packaged app
@@ -251,6 +252,14 @@ The emphasis is on:
 - The app is ad-hoc signed but not notarized, so first launch of a downloaded copy needs a one-time Gatekeeper approval.
 
 ## Release History
+
+### v0.4.0
+
+- Add optional Gemini (Antigravity) quota display.
+- Fix pinned widget refresh/settings controls; Settings opens in its own window.
+- Show Codex 1W or 5H labels according to the actual limit duration.
+
+Details: [docs/release-notes-v0.4.0.md](docs/release-notes-v0.4.0.md)
 
 ### v0.3.1
 

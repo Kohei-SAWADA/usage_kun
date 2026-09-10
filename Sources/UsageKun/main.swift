@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var desktopWindow: NSPanel?
+    private var settingsWindow: NSWindow?
     private var cancellables = Set<AnyCancellable>()
     private var refreshTimer: Timer?
     private var lastRefreshIntervalMinutes: Int = -1
@@ -117,11 +118,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.hasShadow = true
         panel.ignoresMouseEvents = false
         panel.acceptsMouseMovedEvents = true
-        panel.becomesKeyOnlyIfNeeded = true
+        panel.becomesKeyOnlyIfNeeded = false
         panel.hidesOnDeactivate = false
         panel.isMovableByWindowBackground = false
         panel.isReleasedWhenClosed = false
-        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)))
+        // Keep Finder's desktop icon surface from intercepting widget clicks.
+        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
         panel.collectionBehavior = [
             .canJoinAllSpaces,
             .fullScreenAuxiliary,
@@ -132,13 +134,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             rootView: DesktopWidgetView(
                 store: usageStore,
                 onOpenSettings: { [weak self] in
-                    self?.presentPopoverFromStatusItem(selectedTab: .settings)
+                    self?.presentSettingsWindow()
                 }
             )
         )
 
         desktopWindow = panel
         syncDesktopWidgetVisibility(isEnabled: usageStore.config.desktopWidgetEnabled)
+    }
+
+    private func presentSettingsWindow() {
+        popover?.performClose(nil)
+        if settingsWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(origin: .zero, size: AppWindowLayout.popoverSize(
+                    selectedTab: .settings,
+                    providerCount: AppWindowLayout.enabledProviderCount(in: usageStore.config))),
+                styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            window.title = "usage_kun Settings"
+            window.isReleasedWhenClosed = false
+            window.contentViewController = NSHostingController(
+                rootView: SettingsView(store: usageStore)
+                    .frame(width: AppWindowLayout.popoverWidth, height: 680)
+                    .background(AppTheme.background))
+            window.center()
+            settingsWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.makeKeyAndOrderFront(nil)
     }
 
     private func observeUsageChanges() {
@@ -214,12 +237,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         usageStore.refresh()
         syncWindowSizes()
+        NSApp.activate(ignoringOtherApps: true)
 
         if !popover.isShown {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
 
-        NSApp.activate(ignoringOtherApps: true)
+        // Opening Settings from the nonactivating desktop panel should move
+        // keyboard focus to the popover, even if the desktop panel was key.
+        popover.contentViewController?.view.window?.makeKey()
     }
 
     private func showStatusMenu() {
@@ -301,7 +327,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.attributedTitle = title
         } else {
             button.image = StatusIconRenderer.image(
-                percent: usageStore.mostConstrainedPercent ?? 0,
+                percent: usageStore.mostConstrainedPercent,
                 status: usageStore.overallStatus
             )
             button.imagePosition = .imageLeading

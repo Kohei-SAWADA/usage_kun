@@ -73,7 +73,7 @@ struct UsageDashboardView: View {
                         .font(.system(size: 25, weight: .semibold, design: .rounded))
                         .foregroundStyle(AppTheme.textPrimary)
 
-                    Text("Claude / Codex usage meter")
+                    Text("Claude / Codex / Gemini usage meter")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(AppTheme.textMuted)
                 }
@@ -101,7 +101,7 @@ struct UsageDashboardView: View {
         case .critical:
             "Hold off"
         case .unknown:
-            "Setup"
+            visibleSnapshots.contains { $0.provider == .antigravity && $0.status == .unknown } ? "Check" : "Setup"
         case .error:
             "Check"
         }
@@ -109,7 +109,7 @@ struct UsageDashboardView: View {
 
     private var primaryMetricTitle: String {
         guard let snapshot = primaryMetricSnapshot else {
-            return "Usage 5h"
+            return "Usage left"
         }
 
         return "\(shortName(for: snapshot.provider)) 5h"
@@ -146,6 +146,8 @@ struct UsageDashboardView: View {
         switch provider {
         case .claude:
             "Claude"
+        case .antigravity:
+            "Gemini"
         case .codex:
             "Codex"
         }

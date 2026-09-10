@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import UsageKunCore
 
 func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
@@ -60,7 +61,14 @@ struct UsageKunCoreCheck {
         checkClaudePlanResolution()
         checkOfficialUsageParsers(now: now)
         checkWeeklySnapshot(now: now)
+        await checkDynamicCodexWindows(now: now)
         checkMenuBarEntries(now: now)
+        checkAntigravityConfiguration()
+        checkAntigravityQuotas(now: now)
+        await checkAntigravityProviderVisibility(now: now)
+        await checkProviderToggleDuringRefresh(now: now)
+        checkAntigravityMenuIsolation(now: now)
+        checkAntigravityNotifications(now: now)
         checkOnboardingDetection()
         checkNotificationPlanner(now: now)
         await checkClaudeDedup(now: now)
@@ -79,7 +87,46 @@ struct UsageKunCoreCheck {
             await runLiveCodexCompositeCheck(now: Date())
         }
 
+        if CommandLine.arguments.contains("--live-antigravity") {
+            await runLiveAntigravityCheck(now: Date())
+        }
+
         print("UsageKunCoreCheck passed")
+    }
+
+    @MainActor
+    static func checkDynamicCodexWindows(now: Date) async {
+        let week = "{\"used_percent\":29,\"limit_window_seconds\":604800}"
+        let short = "{\"used_percent\":10,\"limit_window_seconds\":18000}"
+        for (body, label, weekly) in [
+            ("\"primary_window\":\(week)", "1W", false),
+            ("\"primary_window\":null,\"secondary_window\":\(week)", "1W", false),
+            ("\"primary_window\":\(short),\"secondary_window\":\(week)", "5H", true),
+            ("\"primary_window\":\(week),\"secondary_window\":\(short)", "5H", true),
+            ("\"primary_window\":{\"used_percent\":29}", "LIMIT", false)
+        ] {
+            let data = Data("{\"rate_limit\":{\(body)}}".utf8)
+            guard let reading = CLIOAuthUsageService.parseCodexWhamUsage(data: data, now: now) else {
+                expect(false, "Codex window fixture must parse"); continue
+            }
+            let snapshot = CLIOAuthUsageService.makeSnapshot(provider: .codex, reading: reading,
+                now: now, source: "fixture", detail: "fixture")
+            expect(snapshot.primaryWindowLabel == label, "Codex label must match duration: \(label)")
+            expect((snapshot.weekly != nil) == weekly, "weekly-only must not duplicate its bar")
+            expectClose(snapshot.percent, label == "5H" ? 90 : 71, "selected window quota must match label")
+        }
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: home) }
+        let sessions = home.appendingPathComponent(".codex/sessions")
+        try! FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
+        for slot in ["primary", "secondary"] {
+            let log = "{\"timestamp\":\"2027-01-15T08:00:00Z\",\"payload\":{\"type\":\"token_count\",\"rate_limits\":{\"\(slot)\":{\"used_percent\":29,\"window_minutes\":10080,\"resets_at\":1900000000}}}}"
+            try! log.write(to: sessions.appendingPathComponent("fixture.jsonl"), atomically: true, encoding: .utf8)
+            let result = await LocalLogUsageService(home: home).snapshots(now: now)
+            let codex = result.first { $0.provider == .codex }
+            expect(codex?.primaryWindowLabel == "1W", "local weekly-only \(slot) must show 1W")
+            expectClose(codex?.percent, 71, "local weekly-only quota must be preserved")
+        }
     }
 
     @MainActor
@@ -622,5 +669,289 @@ struct UsageKunCoreCheck {
         print("Codex: \(codex?.percentDisplay ?? "--") source=\(codex?.source ?? "--")")
 
         expect(codex != nil, "composite service should return Codex")
+    }
+}
+
+extension UsageKunCoreCheck {
+    static func checkAntigravityConfiguration() {
+        expect(!AppConfig().antigravityProviderEnabled, "Antigravity should be opt-in")
+        let oldConfig = try! JSONDecoder().decode(AppConfig.self, from: Data("""
+        {"claudeProviderEnabled":false,"codexProviderEnabled":true,"codexOfficialUsageEnabled":true,
+         "refreshIntervalMinutes":10,"onboardingCompleted":true}
+        """.utf8))
+        expect(!oldConfig.antigravityProviderEnabled, "old config must not silently enable Antigravity")
+        expect(!oldConfig.claudeProviderEnabled && oldConfig.codexProviderEnabled,
+               "adding Antigravity must preserve the existing Codex-only selection")
+        expect(oldConfig.codexOfficialUsageEnabled && oldConfig.refreshIntervalMinutes == 10,
+               "old sync and refresh preferences must survive migration")
+        expect(oldConfig.onboardingCompleted, "adding a provider must preserve completed onboarding")
+        for enabled in [false, true] {
+            var config = oldConfig
+            config.antigravityProviderEnabled = enabled
+            let decoded = try! JSONDecoder().decode(AppConfig.self, from: JSONEncoder().encode(config))
+            expect(decoded == config, "Antigravity selection and all existing config should round-trip")
+        }
+    }
+
+    static func antigravitySummary(_ buckets: String, now: Date) -> UsageSnapshot? {
+        AntigravityUsageService.parseSummary(data: Data("""
+        {"response":{"groups":[{"displayName":"Gemini Models","buckets":[\(buckets)]}]}}
+        """.utf8), now: now)
+    }
+
+    static func checkAntigravityQuotas(now: Date) {
+        let snapshot = antigravitySummary("""
+        {"bucketId":"gemini-weekly","window":"weekly","remainingFraction":1,"resetTime":"2026-09-09T13:00:00Z"},
+        {"bucketId":"gemini-5h","window":"5h","remainingFraction":0.375,"resetTime":"2026-09-09T12:00:00.125Z"}
+        """, now: now)!
+        expect(snapshot.provider == .antigravity && snapshot.updatedAt == now,
+               "Antigravity summary should identify its provider and supplied refresh time")
+        expectClose(snapshot.percent, 37.5, "remaining fraction should convert to primary percent left")
+        expectClose(snapshot.weekly?.percentLeft, 100, "explicit full weekly quota should remain 100%")
+        expect(snapshot.status == .ok, "both available windows above warning should be ready")
+        let expectedReset = ISO8601DateFormatter().date(from: "2026-09-09T12:00:00Z")!.addingTimeInterval(0.125)
+        expect(snapshot.resetAt != nil, "fractional ISO reset timestamps should parse")
+        expect(abs(snapshot.resetAt!.timeIntervalSince(expectedReset)) < 0.001,
+               "fractional ISO reset timestamps must preserve their time")
+        expect(snapshot.weekly?.resetAt == ISO8601DateFormatter().date(from: "2026-09-09T13:00:00Z"),
+               "whole-second ISO reset timestamps should parse")
+
+        let observedShape = antigravitySummary("""
+        {"bucketId":"gemini-5h","window":"5h","remainingFraction":0},
+        {"bucketId":"gemini-weekly","window":"weekly","remainingFraction":0.64844364}
+        """, now: now)!
+        expectClose(observedShape.percent, 0, "an explicit zero is a known exhausted quota")
+        expectClose(observedShape.weekly?.percentLeft, 64.844364, "fractional weekly quota must retain precision")
+        expect(observedShape.status == .critical, "an explicit exhausted quota should be critical")
+        let full = antigravitySummary("""
+        {"bucketId":"gemini-5h","remainingFraction":1,"disabled":false},
+        {"bucketId":"gemini-weekly","remainingFraction":1}
+        """, now: now)!
+        expectClose(full.percent, 100, "a full primary quota must remain 100%")
+        expect(full.status == .ok, "full windows should be ready when optional window labels are absent")
+        let disabled = antigravitySummary("""
+        {"bucketId":"gemini-5h","remainingFraction":0.5,"disabled":true},
+        {"bucketId":"gemini-weekly","remainingFraction":1}
+        """, now: now)!
+        expect(disabled.percent == nil && disabled.status == .unknown,
+               "disabled bucket must stay unknown like Antigravity's quota component")
+
+        let invalidFields = [
+            "", // Missing is distinct from an explicit zero.
+            ",\"remainingFraction\":null", ",\"remainingFraction\":-0.01",
+            ",\"remainingFraction\":1.01", ",\"remainingFraction\":true",
+            ",\"remainingFraction\":false", ",\"remainingFraction\":\"0.5\"",
+            ",\"remainingFraction\":[]", ",\"remainingFraction\":{}",
+            ",\"remainingAmount\":50", ",\"remainingFraction\":0.5,\"remainingAmount\":50",
+            ",\"remainingFraction\":0.5,\"disabled\":\"false\"",
+            ",\"remainingFraction\":0.5,\"disabled\":0",
+            ",\"remainingFraction\":0.5,\"window\":\"weekly\""
+        ]
+        for fields in invalidFields {
+            let unknown = antigravitySummary("""
+            {"bucketId":"gemini-5h"\(fields)},
+            {"bucketId":"gemini-weekly","remainingFraction":1}
+            """, now: now)!
+            expect(unknown.percent == nil && unknown.used == nil && unknown.status == .unknown,
+                   "missing or invalid primary quota must stay unknown: \(fields)")
+            expectClose(unknown.weekly?.percentLeft, 100, "invalid primary quota must not discard known weekly quota")
+        }
+        let noPrimary = antigravitySummary("{\"bucketId\":\"gemini-weekly\",\"remainingFraction\":0.5}", now: now)!
+        expect(noPrimary.percent == nil && noPrimary.status == .unknown,
+               "a missing primary window should leave the overall state unknown")
+        expectClose(noPrimary.weekly?.percentLeft, 50, "known weekly quota should survive missing primary quota")
+        let noWeekly = antigravitySummary("{\"bucketId\":\"gemini-5h\",\"remainingFraction\":0.5}", now: now)!
+        expectClose(noWeekly.percent, 50, "known primary quota should survive missing weekly quota")
+        expect(noWeekly.weekly?.percentLeft == nil && noWeekly.status == .unknown,
+               "missing weekly quota must not imply full weekly availability")
+        let partialExhausted = antigravitySummary("{\"bucketId\":\"gemini-weekly\",\"remainingFraction\":0}", now: now)!
+        expect(partialExhausted.percent == nil && partialExhausted.status == .critical,
+               "a known exhausted weekly window should remain critical when primary is unknown")
+        let duplicate = antigravitySummary("""
+        {"bucketId":"gemini-5h","remainingFraction":0.2},
+        {"bucketId":"gemini-5h","remainingFraction":0.8},
+        {"bucketId":"gemini-weekly","remainingFraction":1}
+        """, now: now)!
+        expect(duplicate.percent == nil && duplicate.status == .unknown,
+               "conflicting duplicate buckets must not arbitrarily select a quota")
+        let invalidReset = antigravitySummary("""
+        {"bucketId":"gemini-5h","remainingFraction":0.2,"resetTime":"not-a-date"},
+        {"bucketId":"gemini-weekly","remainingFraction":1}
+        """, now: now)!
+        expect(invalidReset.resetAt == nil, "invalid reset dates must not be fabricated")
+        expectClose(invalidReset.percent, 20, "an invalid reset must not discard a valid quota")
+        for malformed in ["", "{", "[]", "null", "{}", "{\"response\":{\"groups\":{}}}",
+                          "{\"userStatus\":{\"cascadeModelConfigData\":{\"clientModelConfigs\":[]}}}"] {
+            expect(AntigravityUsageService.parseSummary(data: Data(malformed.utf8), now: now) == nil,
+                   "malformed or obsolete model data should fail safely")
+        }
+        let nonGeminiJSON = """
+        {"response":{"groups":[{"displayName":"Claude Models","buckets":[
+          {"bucketId":"gemini-5h","remainingFraction":1},{"bucketId":"gemini-weekly","remainingFraction":1}
+        ]}]}}
+        """
+        expect(AntigravityUsageService.parseSummary(data: Data(nonGeminiJSON.utf8), now: now) == nil,
+               "non-Gemini groups must not substitute another provider's quota")
+        let empty = antigravitySummary("", now: now)!
+        expect(empty.percent == nil && empty.weekly?.percentLeft == nil && empty.status == .unknown,
+               "empty bucket lists must produce unknown usage")
+    }
+
+    @MainActor
+    static func checkAntigravityProviderVisibility(now: Date) async {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("UsageKunCoreCheck-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: home) }
+        let configStore = AppConfigStore(configURL: home.appendingPathComponent("config.json"))
+        let fixture = antigravitySummary("""
+        {"bucketId":"gemini-5h","remainingFraction":0.4},{"bucketId":"gemini-weekly","remainingFraction":0.8}
+        """, now: now)!
+        var fetchCount = 0
+        let service = CompositeUsageService(configStore: configStore,
+                                            localLogService: LocalLogUsageService(home: home),
+                                            antigravitySnapshot: { date in
+            expect(date == now, "composite should forward the refresh time to Antigravity")
+            fetchCount += 1
+            return fixture
+        })
+        var config = AppConfig(localLogEnabled: false, claudeProviderEnabled: false, codexProviderEnabled: false)
+        try! configStore.save(config)
+        let disabled = await service.snapshots(now: now)
+        expect(disabled.isEmpty && fetchCount == 0, "disabled Antigravity must neither fetch nor display")
+        config.antigravityProviderEnabled = true
+        try! configStore.save(config)
+        let enabled = await service.snapshots(now: now)
+        expect(enabled == [fixture] && fetchCount == 1,
+               "Antigravity should work with all existing providers and sync sources disabled")
+        config.codexProviderEnabled = true
+        try! configStore.save(config)
+        let codexAndGemini = await service.snapshots(now: now)
+        expect(codexAndGemini.map(\.provider) == [.codex, .antigravity] && fetchCount == 2,
+               "Antigravity should coexist with a disabled-sync Codex placeholder")
+        config.antigravityProviderEnabled = false
+        try! configStore.save(config)
+        let codexOnly = await service.snapshots(now: now)
+        expect(codexOnly.map(\.provider) == [.codex] && fetchCount == 2,
+               "disabling Antigravity must stop fetching and preserve Codex selection")
+    }
+
+    @MainActor
+    static func checkProviderToggleDuringRefresh(now: Date) async {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("UsageKunCoreCheck-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: home) }
+        let configStore = AppConfigStore(configURL: home.appendingPathComponent("config.json"))
+        var config = AppConfig(localLogEnabled: false, claudeProviderEnabled: false,
+                               codexProviderEnabled: true, antigravityProviderEnabled: true)
+        try! configStore.save(config)
+        let service = ControlledUsageService()
+        let store = UsageStore(service: service, configStore: configStore)
+        var publishedProviders: [[UsageProvider]] = []
+        let observer = store.$snapshots.sink { publishedProviders.append($0.map(\.provider)) }
+        defer { observer.cancel() }
+
+        await withCheckedContinuation { firstRequested in
+            service.onRequest = { count in
+                if count == 1 { firstRequested.resume() }
+            }
+            store.refresh()
+        }
+        config.antigravityProviderEnabled = false
+        store.updateConfig(config)
+        expect(service.callCount == 1, "a toggle should queue a refresh while the current request is pending")
+        let stale = antigravitySummary("""
+        {"bucketId":"gemini-5h","remainingFraction":0.5},{"bucketId":"gemini-weekly","remainingFraction":0.8}
+        """, now: now)!
+        await withCheckedContinuation { secondRequested in
+            service.onRequest = { count in
+                if count == 2 { secondRequested.resume() }
+            }
+            service.pending.removeFirst().resume(returning: [stale])
+        }
+        expect(service.callCount == 2, "a provider toggle must trigger a second refresh without waiting for the timer")
+        expect(!publishedProviders.contains(where: { $0.contains(.antigravity) }),
+               "the result from before the toggle must never publish the disabled provider")
+        let codex = UsageSnapshot(provider: .codex, status: .ok, used: 70, limit: nil,
+                                  percent: 70, resetAt: nil, updatedAt: now, message: nil)
+        var finishedObserver: AnyCancellable?
+        await withCheckedContinuation { finished in
+            finishedObserver = store.$isRefreshing.sink { refreshing in
+                if !refreshing { finished.resume() }
+            }
+            service.pending.removeFirst().resume(returning: [codex])
+        }
+        finishedObserver?.cancel()
+        expect(store.snapshots == [codex] && !store.isRefreshing,
+               "the queued refresh should publish only the newly selected providers")
+        expect(service.callCount == 2, "one in-flight toggle should not create extra refreshes")
+    }
+
+    static func checkAntigravityMenuIsolation(now: Date) {
+        let codex = UsageSnapshot(provider: .codex, status: .ok, used: 65, limit: nil,
+                                  percent: 65, resetAt: nil, updatedAt: now, message: nil,
+                                  weekly: UsageWindow(percentLeft: 45, resetAt: nil))
+        let claude = UsageSnapshot(provider: .claude, status: .warning, used: 30, limit: nil,
+                                   percent: 30, resetAt: nil, updatedAt: now, message: nil)
+        let gemini = antigravitySummary("""
+        {"bucketId":"gemini-5h","remainingFraction":0.7},{"bucketId":"gemini-weekly","remainingFraction":0.1}
+        """, now: now)!
+        let before = UsageStore.menuBarEntries(snapshots: [codex, claude])
+        let after = UsageStore.menuBarEntries(snapshots: [gemini, codex, claude])
+        expect(Array(after.prefix(2)) == before, "adding Gemini must not change Claude or Codex menu entries")
+        expect(after.map(\.mark) == ["C", "X", "G"], "Gemini should have its own stable G menu entry")
+        expectClose(after.last?.percentLeft, 10, "Gemini menu should use its constrained weekly quota")
+        expect(after.last?.status == .critical, "Gemini menu entry should retain its quota status")
+        expect(UsageStore.menuBarEntries(snapshots: [codex]).map(\.mark) == ["X"],
+               "Codex-only snapshots must keep a Codex-only menu")
+        for buckets in ["", "{\"bucketId\":\"gemini-5h\",\"remainingFraction\":0.5}",
+                        "{\"bucketId\":\"gemini-weekly\",\"remainingFraction\":0.5}"] {
+            let entries = UsageStore.menuBarEntries(snapshots: [antigravitySummary(buckets, now: now)!, codex])
+            expect(entries.last?.percentLeft == nil && entries.last?.status == .unknown,
+                   "an incomplete Gemini quota must remain unknown in the menu")
+            expectClose(entries.first?.percentLeft, 45, "unknown Gemini quota must not affect Codex's weekly value")
+        }
+    }
+
+    static func checkAntigravityNotifications(now: Date) {
+        let previous = antigravitySummary("""
+        {"bucketId":"gemini-5h","remainingFraction":0.5},{"bucketId":"gemini-weekly","remainingFraction":0.8}
+        """, now: now)!
+        let current = antigravitySummary("""
+        {"bucketId":"gemini-5h","remainingFraction":0.5},{"bucketId":"gemini-weekly","remainingFraction":0.2}
+        """, now: now.addingTimeInterval(60))!
+        let plan = UsageNotificationPlanner.plan(previous: [previous], current: [current], alreadyNotified: [])
+        expect(plan.events.count == 1, "a weekly Gemini threshold crossing should notify once")
+        expect(plan.events.first?.dedupKey == "antigravity.weekly.threshold25",
+               "Gemini weekly notifications must be isolated from other providers and primary quota")
+        expect(plan.events.first?.title.contains("7 day") == true,
+               "a weekly Gemini warning should name its actual quota window")
+    }
+
+    @MainActor
+    static func runLiveAntigravityCheck(now: Date) async {
+        let snapshot = await AntigravityUsageService().snapshot(now: now)
+        print("-- live: Antigravity Gemini quota --")
+        print("status: \(snapshot.status.rawValue)")
+        print("5 hour left: \(snapshot.percentDisplay)")
+        print("5 hour reset: \(snapshot.resetAt.map { $0.description } ?? "--")")
+        print("weekly left: \(snapshot.weekly?.percentLeft.map { String(format: "%.2f%%", $0) } ?? "--")")
+        print("weekly reset: \(snapshot.weekly?.resetAt.map { $0.description } ?? "--")")
+        print("source: \(snapshot.source)")
+        expect(snapshot.provider == .antigravity, "live snapshot should identify Antigravity")
+        expect(snapshot.percent != nil && snapshot.weekly?.percentLeft != nil,
+               "live Antigravity check requires actual primary and weekly quota values")
+    }
+}
+
+@MainActor
+private final class ControlledUsageService: UsageService {
+    var callCount = 0
+    var pending: [CheckedContinuation<[UsageSnapshot], Never>] = []
+    var onRequest: ((Int) -> Void)?
+
+    func snapshots(now: Date) async -> [UsageSnapshot] {
+        callCount += 1
+        return await withCheckedContinuation { continuation in
+            pending.append(continuation)
+            onRequest?(callCount)
+        }
     }
 }

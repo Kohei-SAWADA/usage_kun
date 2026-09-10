@@ -264,10 +264,11 @@ public final class CLIOAuthUsageService {
             message: messageParts.joined(separator: " "),
             source: source,
             unit: "%",
-            metricTitle: "5 hour left",
+            metricTitle: reading.primary.windowMinutes == 10080 ? "1 week left" : "Usage left",
             secondaryTitle: "Reset",
             secondaryValue: resetText,
-            weekly: weekly
+            weekly: weekly,
+            primaryWindowMinutes: reading.primary.windowMinutes
         )
     }
 
@@ -310,6 +311,12 @@ public final class CLIOAuthUsageService {
 
         var primary = codexWindow(container["primary"] ?? container["primary_window"] ?? container["five_hour"], now: now)
         var secondary = codexWindow(container["secondary"] ?? container["secondary_window"] ?? container["weekly"], now: now)
+
+        // A weekly-only plan can put its sole limit in the secondary slot.
+        if primary == nil {
+            primary = secondary
+            secondary = nil
+        }
 
         // If the response only labels windows by duration, keep the shorter one as primary.
         if let first = primary, let second = secondary,

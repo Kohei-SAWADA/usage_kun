@@ -15,6 +15,7 @@ public struct AppConfig: Codable, Equatable {
     /// Providers to show. Unchecked providers are not fetched or displayed.
     public var claudeProviderEnabled: Bool
     public var codexProviderEnabled: Bool
+    public var antigravityProviderEnabled: Bool
 
     public init(
         localLogEnabled: Bool = true,
@@ -28,7 +29,8 @@ public struct AppConfig: Codable, Equatable {
         notificationsEnabled: Bool = false,
         claudePlanOverride: String = "auto",
         claudeProviderEnabled: Bool = true,
-        codexProviderEnabled: Bool = true
+        codexProviderEnabled: Bool = true,
+        antigravityProviderEnabled: Bool = false
     ) {
         self.localLogEnabled = localLogEnabled
         self.claudeOfficialUsageEnabled = claudeOfficialUsageEnabled
@@ -42,6 +44,7 @@ public struct AppConfig: Codable, Equatable {
         self.claudePlanOverride = claudePlanOverride
         self.claudeProviderEnabled = claudeProviderEnabled
         self.codexProviderEnabled = codexProviderEnabled
+        self.antigravityProviderEnabled = antigravityProviderEnabled
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -57,11 +60,13 @@ public struct AppConfig: Codable, Equatable {
         case claudePlanOverride
         case claudeProviderEnabled
         case codexProviderEnabled
+        case antigravityProviderEnabled
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
+        antigravityProviderEnabled = try container.decodeIfPresent(Bool.self, forKey: .antigravityProviderEnabled) ?? false
         localLogEnabled = try container.decodeIfPresent(Bool.self, forKey: .localLogEnabled) ?? true
         claudeOfficialUsageEnabled = try container.decodeIfPresent(Bool.self, forKey: .claudeOfficialUsageEnabled) ?? false
         codexOfficialUsageEnabled = try container.decodeIfPresent(Bool.self, forKey: .codexOfficialUsageEnabled) ?? false
