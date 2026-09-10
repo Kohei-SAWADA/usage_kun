@@ -27,7 +27,8 @@ for path in \
   "sekkeisho.md" \
   "解説.md"; do
   if [ -e "$path" ]; then
-    if ! grep -qxF "$path/" .gitignore 2>/dev/null && ! grep -qxF "$path" .gitignore 2>/dev/null; then
+    if ! grep -qxF "$path/" .gitignore 2>/dev/null && ! grep -qxF "$path" .gitignore 2>/dev/null && \
+       ! grep -qxF "/$path/" .gitignore 2>/dev/null && ! grep -qxF "/$path" .gitignore 2>/dev/null; then
       fail "$path exists but is not ignored"
     fi
     printf 'local-only path ignored: %s\n' "$path"
