@@ -20,3 +20,22 @@ jobs:
       - name: Run core check
         run: swift run UsageKunCoreCheck
 
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build Windows solution
+        run: dotnet build Windows/UsageKun.Windows.sln -c Release
+      - name: Run Windows core checks
+        run: dotnet run --project Windows/tests/UsageKun.Core.Check -c Release --no-build
+      - name: Run isolated WPF checks
+        run: dotnet run --project Windows/tests/UsageKun.UI.Check -c Release --no-build
+      - name: Package Windows x64
+        run: ./Scripts/package_windows.ps1 -Runtime win-x64
+      - name: Package Windows ARM64
+        run: ./Scripts/package_windows.ps1 -Runtime win-arm64

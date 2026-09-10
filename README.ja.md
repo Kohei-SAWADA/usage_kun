@@ -19,6 +19,18 @@ usage-kun は、Claude と Codex の使用量を作業中にすぐ確認する�
 
 このプロジェクトは OpenAI、Anthropic、その他 provider の公式アプリではありません。各社による承認・提携・提供を受けたものでもありません。
 
+## ダウンロード
+
+[最新リリース](https://github.com/Kohei-SAWADA/usage_kun/releases/latest)から、お使いの環境に合う ZIP を選んでください。
+
+| 環境 | ZIP |
+| --- | --- |
+| macOS（Apple Silicon） | [UsageKun-macOS.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-macOS.zip) |
+| Windows（Intel / AMD） | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) |
+| Windows ARM64・Apple Silicon の Parallels | [UsageKun-Windows-arm64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-arm64.zip) |
+
+Windows は展開して `UsageKun.exe` を起動します。.NET ランタイムは同梱しています。Windows 側の CLI / Antigravity でサインインし、設定から同期を有効にしてください。[Windows ガイド](docs/windows.md)に導入手順と検証範囲を記載しています。
+
 ## スクリーンショット
 
 usage-kun は、作業画面の邪魔をせずに常に見えることを意識しています。macOS 右上のメニューバーアイコンをクリックすると popover が開き、左上には固定ホームメーターを表示できます。Settings では Codex だけ、Claude だけ、または両方の表示に切り替えられます。
@@ -251,6 +263,14 @@ AI 使用量 monitor や menu bar utility はすでに複数あります。usage
 - この app は ad-hoc 署名のみで notarization はしていないため、download した copy の初回起動時に一度だけ Gatekeeper の許可が必要です。
 
 ## リリース履歴
+
+### v0.4.1
+
+- Windows x64 / ARM64 版を公開しました。公式使用量同期と Gemini に対応しています。
+- Windows のビルド・コアチェック・WPF 統合チェック・パッケージ作成を CI に追加しました。
+- macOS の動作は v0.4.0 と同じで、リリース番号を揃えました。
+
+詳細: [docs/release-notes-v0.4.1.md](docs/release-notes-v0.4.1.md)
 
 ### v0.4.0
 

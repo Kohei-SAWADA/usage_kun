@@ -13,11 +13,25 @@
   <a href="README.ja.md">日本語</a>
 </p>
 
-usage-kun is a small, privacy-first macOS menu bar app for keeping Claude, Codex, and optional Gemini (Antigravity) usage visible while you work.
+usage-kun is a small, privacy-first macOS menu bar and Windows system-tray app for keeping Claude, Codex, and optional Gemini (Antigravity) usage visible while you work.
 
 It is built as a personal utility: a compact usage meter rather than a full analytics dashboard. It reads local CLI usage data by default and can optionally reuse Claude Code / Codex CLI sign-in tokens in read-only mode for official 5-hour and 1-week quota numbers. It does not store, refresh, or log those tokens.
 
 This project is not affiliated with, endorsed by, or sponsored by OpenAI, Anthropic, or any other provider.
+
+## Downloads
+
+Choose your platform from [the latest release](https://github.com/Kohei-SAWADA/usage_kun/releases/latest):
+
+| Platform | ZIP |
+| --- | --- |
+| macOS (Apple Silicon) | [UsageKun-macOS.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-macOS.zip) |
+| Windows (Intel / AMD) | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) |
+| Windows ARM64 / Parallels on Apple Silicon | [UsageKun-Windows-arm64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-arm64.zip) |
+
+Windows: extract the ZIP and run `UsageKun.exe`; the .NET runtime is included. Sign in to the CLI or Antigravity inside Windows and enable the desired sync options in Settings. See the [Windows guide](docs/windows.md) for setup, tests, and platform limitations.
+
+The screenshots below show the macOS app.
 
 ## Screenshots
 
@@ -63,8 +77,8 @@ usage-kun is designed to stay visible without becoming a dashboard. Click the me
 
 ## Requirements
 
-- macOS 14 or newer
-- Swift 6 or newer
+- macOS 14 or newer for the Mac app; Windows 10/11 for the Windows app
+- Source builds: Swift 6 or newer on macOS; .NET 8 SDK on Windows
 - Xcode Command Line Tools
 
 ## Quick Start
@@ -252,6 +266,14 @@ The emphasis is on:
 - The app is ad-hoc signed but not notarized, so first launch of a downloaded copy needs a one-time Gatekeeper approval.
 
 ## Release History
+
+### v0.4.1
+
+- Publish native Windows x64 and ARM64 downloads with official usage sync and Gemini support.
+- Add Windows build, core checks, WPF integration checks, and packaging to CI.
+- Keep macOS behavior from v0.4.0 and align the release version.
+
+Details: [docs/release-notes-v0.4.1.md](docs/release-notes-v0.4.1.md)
 
 ### v0.4.0
 

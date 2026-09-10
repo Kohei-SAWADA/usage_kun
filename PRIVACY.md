@@ -46,3 +46,7 @@ Some integrations rely on provider endpoints and local CLI file formats that may
 ## Optional Gemini (Antigravity) quota
 
 When enabled in Settings, usage_kun discovers the current user's running Antigravity language server and reads quota over a loopback connection. Its ephemeral CSRF credential stays in memory and is never saved or logged. This integration does not send the credential to a remote endpoint. It requires Antigravity to be running and signed in.
+
+## Windows
+
+The Windows app reads local CLI logs from the Windows user profile. Official Claude/Codex sync and Antigravity quota sync require explicit settings opt-in. Windows CLI sign-in files remain in their existing locations; usage_kun does not persist or refresh their credentials. Configuration is stored under `%APPDATA%\usage_kun`. The Mac account's sign-in files are not copied into Windows.

@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-This repository contains usage-kun, a native macOS menu bar utility for viewing Claude and Codex usage at a glance.
+This repository contains usage-kun, a native macOS menu bar and Windows system-tray utility for viewing Claude, Codex, and optional Gemini (Antigravity) usage.
 
 ## Product Direction
 
@@ -14,7 +14,7 @@ The app should help a user quickly answer:
 
 ## Engineering Guidelines
 
-- Keep the app native: SwiftPM, AppKit, and SwiftUI.
+- Keep each app native: SwiftPM / AppKit / SwiftUI on macOS; .NET 8 / WPF on Windows.
 - Keep credential handling in `UsageKunCore/Security`.
 - Keep provider-specific behavior behind `UsageService` implementations.
 - Do not add telemetry or analytics SDKs.
@@ -33,3 +33,5 @@ swift run UsageKunCoreCheck
 
 If UI behavior changes, manually inspect both the menu bar popover and the pinned desktop widget.
 
+
+For Windows changes, also run `dotnet build Windows/UsageKun.Windows.sln` and `dotnet run --project Windows/tests/UsageKun.Core.Check`. On Windows, run `dotnet run --project Windows/tests/UsageKun.UI.Check` for isolated WPF integration checks. Inspect the floating meter and tray for UI changes.

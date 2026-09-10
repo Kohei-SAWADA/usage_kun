@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Plain net8.0 so the check runs on any dev machine, mirroring the
+         macOS UsageKunCoreCheck executable (used instead of a test framework). -->
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>UsageKun.Core.Check</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\UsageKun.Core\UsageKun.Core.csproj" />
+  </ItemGroup>
+
+</Project>

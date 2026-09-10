@@ -1,0 +1,132 @@
+<Window x:Class="UsageKun.App.WidgetWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="usage_kun"
+        Width="300"
+        SizeToContent="Height"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False">
+
+    <!-- Windows counterpart of the macOS pinned desktop meter
+         (DesktopWidgetView): an always-on-top borderless panel. -->
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="TextPrimary" Color="#E0FFEB"/>
+        <SolidColorBrush x:Key="TextMuted" Color="#8FBD9C"/>
+        <SolidColorBrush x:Key="TextFaint" Color="#598063"/>
+        <SolidColorBrush x:Key="BarTrack" Color="#752E523D"/>
+        <SolidColorBrush x:Key="PanelHover" Color="#0D1A13"/>
+
+        <Style x:Key="IconButton" TargetType="Button">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}"/>
+            <Setter Property="Background" Value="{StaticResource PanelHover}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonFrame" Background="{TemplateBinding Background}"
+                                BorderBrush="#5E2E523D"
+                                BorderThickness="1"
+                                CornerRadius="7">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#1A3325"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#2B4F39"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="ButtonFrame" Property="BorderBrush" Value="{StaticResource TextMuted}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource TextFaint}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border CornerRadius="8"
+            Background="#F5040605"
+            BorderBrush="{StaticResource BarTrack}"
+            BorderThickness="1"
+            Padding="14">
+        <Border.ContextMenu>
+            <ContextMenu>
+                <MenuItem Header="Refresh now" Click="OnRefreshClick"/>
+                <MenuItem Header="Settings..." Click="OnSettingsClick"/>
+                <Separator/>
+                <MenuItem Header="Hide usage meter" Click="OnHideClick"/>
+            </ContextMenu>
+        </Border.ContextMenu>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <DockPanel Grid.Row="0" Margin="0,0,0,13">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                    <Button x:Name="RefreshButton"
+                            Style="{StaticResource IconButton}"
+                            Content="&#x27F3;"
+                            AutomationProperties.Name="Refresh usage"
+                            ToolTipService.ShowOnDisabled="True"
+                            ToolTip="Refresh"
+                            Click="OnRefreshClick"/>
+                    <Button x:Name="SettingsButton"
+                            Style="{StaticResource IconButton}"
+                            Content="&#x2699;"
+                            AutomationProperties.Name="Open settings"
+                            ToolTip="Settings"
+                            Margin="6,0,0,0"
+                            Click="OnSettingsClick"/>
+                </StackPanel>
+                <!-- Only the title is a drag handle. A panel-wide mouse handler
+                     must never capture the refresh/settings button press. -->
+                <StackPanel Background="Transparent"
+                            Cursor="SizeAll"
+                            ToolTip="Drag to move the usage meter"
+                            MouseLeftButtonDown="OnDragPanel">
+                    <TextBlock Text="usage"
+                               FontFamily="Consolas"
+                               FontSize="16"
+                               FontWeight="Black"
+                               Foreground="{StaticResource TextPrimary}"/>
+                    <TextBlock x:Name="ActionLabel"
+                               Text="SETUP"
+                               FontFamily="Consolas"
+                               FontSize="9"
+                               FontWeight="Black"
+                               Margin="0,3,0,0"
+                               Foreground="{StaticResource TextFaint}"/>
+                </StackPanel>
+            </DockPanel>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                <StackPanel x:Name="RowsPanel"/>
+            </ScrollViewer>
+            <TextBlock Grid.Row="2" x:Name="ErrorText" Foreground="{StaticResource TextMuted}"
+                       FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"
+                       Visibility="Collapsed"/>
+            <TextBlock Grid.Row="3" x:Name="UpdatedText" Foreground="{StaticResource TextFaint}"
+                       FontFamily="Consolas" FontSize="9" Margin="0,9,0,0"/>
+        </Grid>
+    </Border>
+</Window>

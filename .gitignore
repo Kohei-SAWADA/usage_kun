@@ -2,8 +2,8 @@
 .build/
 .swiftpm/
 DerivedData/
-UsageKun.app/
-UsageKun 2.app/
+/UsageKun.app/
+/UsageKun 2.app/
 UsageKun-macOS.zip
 *.xcarchive
 *.dSYM/
@@ -31,3 +31,13 @@ xcuserdata/
 fable_sekkei.md
 sekkeisho.md
 解説.md
+
+# Windows build output and release artifacts
+Windows/**/bin/
+Windows/**/obj/
+Windows/publish/
+Windows/validation/
+UsageKun-Windows-*.zip
+UsageKun-Windows-*.zip.sha256
+SHA256SUMS.txt
+*.user

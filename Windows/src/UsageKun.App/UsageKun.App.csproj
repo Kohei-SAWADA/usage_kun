@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- WinForms is referenced only for NotifyIcon (system tray); the UI is WPF. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>UsageKun.App</RootNamespace>
+    <AssemblyName>UsageKun</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Version>0.4.1</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Lets the project at least compile on macOS/Linux dev machines. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The WinForms implicit global usings collide with the WPF ones
+         (Application, Color, Brush). TrayIcon.cs imports them explicitly. -->
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UsageKun.Core\UsageKun.Core.csproj" />
+  </ItemGroup>
+
+</Project>
