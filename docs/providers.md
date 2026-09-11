@@ -31,7 +31,11 @@ off when loading existing configurations; Codex and Claude choices are preserved
 The local RPC is an internal interface and can change with Antigravity updates.
 The public explanation of the two Gemini windows is in
 [Antigravity's Models documentation](https://www.antigravity.google/docs/models/).
-The Windows implementation is unchanged and does not include this provider.
+Windows supports Gemini (Antigravity) from v0.4.1. In Settings, enable both
+**Providers → Show Gemini (Antigravity)** and **Sync sources → Read Gemini quota
+from Antigravity (opt-in)**, then click **Save**. Run and sign in to Antigravity
+inside the same Windows user session. See the [Windows guide](windows.md) for
+platform-specific setup and validation limits.
 
 Validation: `swift build`, `swift run UsageKunCoreCheck`, and the optional
 `swift run UsageKunCoreCheck --live-antigravity` (prints quota fields only).

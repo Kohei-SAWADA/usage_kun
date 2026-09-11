@@ -13,13 +13,17 @@
   <a href="README.ja.md">日本語</a>
 </p>
 
-usage-kun is a small, privacy-first macOS menu bar and Windows system-tray app for keeping Claude, Codex, and optional Gemini (Antigravity) usage visible while you work.
+usage-kun is a small, privacy-first macOS menu bar and Windows system-tray app for keeping Codex, Claude, and optional Gemini (Antigravity) usage visible while you work.
 
-It is built as a personal utility: a compact usage meter rather than a full analytics dashboard. It reads local CLI usage data by default and can optionally reuse Claude Code / Codex CLI sign-in tokens in read-only mode for official 5-hour and 1-week quota numbers. It does not store, refresh, or log those tokens.
+It is built as a personal utility: a compact usage meter rather than a full analytics dashboard. It reads local CLI usage data by default and can optionally reuse Claude Code / Codex CLI sign-in tokens in read-only mode for official quota numbers. Codex labels follow the actual limit duration, including 5-hour and weekly limits. It does not store, refresh, or log those tokens.
+
+Gemini support reads the 5-hour and weekly quota shown in **Models & Usage > Gemini Models** inside the Antigravity IDE. Enable it in Settings while Antigravity is open and signed in on the same computer. This is Antigravity's Gemini quota, not Gemini app usage or Gemini API billing.
 
 This project is not affiliated with, endorsed by, or sponsored by OpenAI, Anthropic, or any other provider.
 
 ## Downloads
+
+The latest version is [v0.4.1](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.1), with native Windows downloads for x64 and ARM64. Gemini (Antigravity), added on macOS in v0.4.0, is also available on Windows in this release.
 
 Choose your platform from [the latest release](https://github.com/Kohei-SAWADA/usage_kun/releases/latest):
 
@@ -29,13 +33,15 @@ Choose your platform from [the latest release](https://github.com/Kohei-SAWADA/u
 | Windows (Intel / AMD) | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) |
 | Windows ARM64 / Parallels on Apple Silicon | [UsageKun-Windows-arm64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-arm64.zip) |
 
-Windows: extract the ZIP and run `UsageKun.exe`; the .NET runtime is included. Sign in to the CLI or Antigravity inside Windows and enable the desired sync options in Settings. See the [Windows guide](docs/windows.md) for setup, tests, and platform limitations.
+For Windows, follow [Install On Windows](#install-on-windows) below. The ZIP includes the .NET runtime; no SDK or separate runtime installation is needed. Download the app ZIP from the table above or **Assets** on the release page. **Code > Download ZIP** and **Source code** contain development source files.
 
-The screenshots below show the macOS app.
+Setup: [Windows](#install-on-windows) / [macOS](#install-from-the-release-zip) / [Gemini](#enable-gemini-antigravity).
+
+The screenshots below show an earlier macOS version with Codex and Claude. The current version also supports Gemini (Antigravity).
 
 ## Screenshots
 
-usage-kun is designed to stay visible without becoming a dashboard. Click the menu bar icon in the top-right of macOS to open the popover, keep the pinned home meter at the top-left of the desktop, and use Settings to show Codex only, Claude only, or both.
+usage-kun is designed to stay visible without becoming a dashboard. Click the menu bar icon in the top-right of macOS to open the popover, keep the pinned home meter at the top-left of the desktop, and use Settings to choose which of Codex, Claude, and Gemini (Antigravity) to show.
 
 <p align="center">
   <img src="assets/screenshots/menu-bar-popover.png" alt="Menu bar popover opened from the top-right macOS icon, showing Codex and Claude Code usage cards with 5-hour and 1-week limits." width="420">
@@ -63,31 +69,36 @@ usage-kun is designed to stay visible without becoming a dashboard. Click the me
 
 ## Features
 
-- Native macOS menu bar app built with SwiftPM, AppKit, and SwiftUI
-- Compact menu bar popover with provider cards
-- Optional pinned desktop widget for at-a-glance usage
+- Native macOS menu bar app built with SwiftPM, AppKit, and SwiftUI, and native Windows system-tray app built with .NET 8 and WPF
+- Compact macOS menu bar popover and Windows tray controls
+- Optional pinned desktop widget on macOS and draggable floating meter on Windows
 - Duration-aware Codex quota labels, including weekly-only plans, plus Claude Code quota bars
-- Optional Gemini quota from the running Antigravity IDE
+- Optional Gemini 5-hour and weekly quota, including reset times, from the running Antigravity IDE
 - Per-provider checkboxes for Claude, Codex, and Gemini (Antigravity)
 - Local-log usage estimates when official sync is unavailable
 - Optional official usage sync for Claude Code and Codex CLI sign-ins
-- Low-usage and reset notifications for the packaged app
+- Low-usage and reset notifications for the packaged macOS app
 - Read-only token reuse with no token persistence, refresh, or credential logging
 - No telemetry and no bundled analytics
 
 ## Requirements
 
-- macOS 14 or newer for the Mac app; Windows 10/11 for the Windows app
-- Source builds: Swift 6 or newer on macOS; .NET 8 SDK on Windows
-- Xcode Command Line Tools
+- macOS 14 or newer (Apple Silicon release ZIP), or Windows 10/11 (x64 or ARM64)
+- Intel Mac users can build from source.
+- For official Claude / Codex sync: an existing CLI sign-in on the same OS where usage-kun runs
+- For Gemini: the Antigravity IDE running and signed in under the same OS user; enable Gemini in usage-kun Settings
+- Source builds only: Swift 6 or newer and Xcode Command Line Tools on macOS; .NET 8 SDK on Windows
 
 ## Quick Start
 
 ### Install From The Release ZIP
 
+On macOS:
+
 1. Download the latest `UsageKun-macOS.zip` from [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest).
 2. Unzip it and move `UsageKun.app` to `/Applications` (or anywhere you like).
 3. Open `UsageKun.app`.
+4. To use official quotas, sign in to Claude Code or Codex on this Mac, then enable **Claude official usage** or **Codex official usage** under **Settings > Official usage**. For Gemini, see [Enable Gemini (Antigravity)](#enable-gemini-antigravity).
 
 ### First Launch: "Apple could not verify UsageKun is free of malware"
 
@@ -113,9 +124,35 @@ xattr -d com.apple.quarantine /Applications/UsageKun.app
 
 If you prefer not to trust a downloaded binary at all, build it yourself from source below — the result is identical and needs no Gatekeeper approval.
 
+### Install On Windows
+
+1. Open Windows **Settings > System > About** and check **System type**. Choose **x64** for an Intel / AMD PC, or **ARM64** for Windows on ARM, including Parallels on Apple Silicon.
+2. Download [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) or [UsageKun-Windows-arm64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-arm64.zip).
+3. Right-click the downloaded ZIP, select **Extract All...**, and keep the extracted files together in a folder where you want to use the app.
+4. Open that folder and double-click `UsageKun.exe`. No installer or separate .NET installation is required. The app appears in the system tray near the clock; expand the hidden icons if needed.
+5. Right-click the usage-kun tray icon and choose **Settings...**. Under **Providers**, select the providers you use.
+6. For official Claude / Codex quotas, first sign in to Claude Code or Codex **inside Windows**. Under **Sync sources**, check **Official Claude usage sync (opt-in)** and/or **Official Codex usage sync (opt-in)**, then click **Save**. Sign-ins on the Mac host are not reused by a Windows VM.
+7. To add Gemini, follow the steps below. Use **Refresh now** from the tray menu to update the meter. You can change **Start with Windows** in Settings to control automatic startup, then click **Save**.
+
+See the [Windows guide](docs/windows.md) for more setup details and platform limitations.
+
+### Enable Gemini (Antigravity)
+
+1. Open Antigravity and sign in on the same OS and user account where usage-kun is running. Keep the IDE open.
+2. In usage-kun, enable Gemini:
+
+| Platform | Settings |
+| --- | --- |
+| macOS | Turn on **Settings > Providers > Gemini (Antigravity)**. This enables both display and quota reading; changes save automatically. |
+| Windows | Check **Providers > Show Gemini (Antigravity)** and **Sync sources > Read Gemini quota from Antigravity (opt-in)**, then click **Save**. |
+
+3. Refresh usage-kun. The Gemini card shows the remaining 5-hour and weekly quota from Antigravity's **Models & Usage > Gemini Models**, with reset times when available.
+
+Gemini is off by default. If quota is unavailable, open **Models & Usage** in Antigravity and refresh usage-kun again. Missing values remain unknown; they are not shown as 0% remaining. You do not need to enter Antigravity authentication tokens in usage-kun.
+
 ### Run From Source
 
-Run from source:
+Run from source on macOS:
 
 ```sh
 swift run
@@ -143,13 +180,15 @@ To inspect the local Claude 5-hour estimate and calibration details:
 swift run UsageKunCoreCheck --claude-estimate
 ```
 
+For Windows source builds and checks, see [Windows: Build and check](docs/windows.md#build-and-check).
+
 ## Updating An Existing Install
 
-Your settings and calibration data are stored outside the app bundle, so updating the app should not remove your preferences. You do not need to delete `~/.codex`, `~/.claude`, or `~/Library/Application Support/usage_kun`.
+Your settings and calibration data are stored separately from the app, so updating should not remove your preferences. On macOS, keep `~/.codex`, `~/.claude`, and `~/Library/Application Support/usage_kun`. On Windows, keep `%USERPROFILE%\.codex`, `%USERPROFILE%\.claude`, and `%APPDATA%\usage_kun`.
 
 ### If You Installed From Git
 
-From the repository directory you already cloned:
+On macOS, from the repository directory you already cloned:
 
 ```sh
 cd usage_kun
@@ -162,7 +201,7 @@ open UsageKun.app
 
 ### If You Used GitHub Download ZIP
 
-Download the latest source ZIP from GitHub, unzip it, open Terminal in the unzipped `usage_kun` folder, and run:
+On macOS, download the latest source ZIP from GitHub, unzip it, open Terminal in the unzipped `usage_kun` folder, and run:
 
 ```sh
 ./Scripts/package_app.sh
@@ -170,6 +209,8 @@ open UsageKun.app
 ```
 
 ### If You Used The Release ZIP
+
+On macOS:
 
 1. Download the latest `UsageKun-macOS.zip` from [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest).
 2. Quit the old usage-kun app from the menu bar.
@@ -179,13 +220,23 @@ open UsageKun.app
 
 On first launch of the new version, macOS may show the "could not verify" warning again; approve it the same way as in [First Launch](#first-launch-apple-could-not-verify-usagekun-is-free-of-malware). If official Claude sync is enabled, macOS may ask for Claude Code Keychain access again after the update.
 
+### If You Used The Release ZIP (Windows)
+
+1. Download the latest Windows release ZIP for your architecture from [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest).
+2. Right-click the existing tray icon and choose **Quit usage_kun**.
+3. Use **Extract All...** to unpack the new ZIP, then replace the files in your existing app folder with the extracted files.
+4. Run `UsageKun.exe` from that folder. Your saved settings remain in `%APPDATA%\usage_kun`.
+
+If you move the app to a different folder and use **Start with Windows**, save that setting again so startup uses the new location.
+
 ## Data Sources
 
 usage-kun uses a staged data model:
 
 1. Local logs: reads known Claude Code and Codex local usage logs for estimates.
-2. Official usage sync: opt-in only; reuses local CLI sign-in tokens in read-only mode to fetch provider 5-hour and 1-week usage numbers.
+2. Official usage sync: opt-in only; reuses CLI sign-ins on the same OS in read-only mode to fetch official quota numbers and limit durations. Available on macOS and Windows.
 3. Claude calibration: when official Claude sync succeeds, usage-kun can calibrate the local Claude 5-hour cap estimate for later fallback use.
+4. Gemini (Antigravity): opt-in only; reads the running IDE's local quota service for **Gemini Models** 5-hour and weekly remaining usage and reset times. It does not read Gemini app usage or Gemini API billing, or substitute CLI logs or another provider's quota when unavailable.
 
 See [docs/providers.md](docs/providers.md) for details.
 
@@ -197,6 +248,7 @@ See [docs/providers.md](docs/providers.md) for details.
 - No conversation content display.
 - No automatic browser cookie reading.
 - CLI sign-in tokens are not refreshed, copied, stored by this app, or logged.
+- Antigravity's temporary credential is used only with its local service and is never saved or logged.
 - No Admin API keys or manual cookie headers are collected in this release.
 
 See [PRIVACY.md](PRIVACY.md) for the full privacy note.
@@ -217,6 +269,7 @@ Sources/UsageKunCore/
     ClaudeCalibrationStore.swift
   OnboardingDetector.swift
   Providers/
+    AntigravityUsageService.swift
     CLIOAuthUsageService.swift
     LocalLogUsageService.swift
   UsageNotificationPlanner.swift
@@ -225,6 +278,15 @@ Sources/UsageKunCore/
 
 Tests/UsageKunCoreCheck/
   main.swift
+
+Windows/
+  UsageKun.Windows.sln
+  src/
+    UsageKun.App/
+    UsageKun.Core/
+  tests/
+    UsageKun.Core.Check/
+    UsageKun.UI.Check/
 
 assets/screenshots/
   pinned-desktop-meter.png
@@ -242,34 +304,37 @@ Packaging/
 Scripts/
   package_app.sh
   package_release_zip.sh
+  package_windows.ps1
   preflight_publication.sh
 ```
 
 ## Why Another Usage Meter?
 
-There are already several AI usage monitors and menu bar utilities. usage-kun exists as a small, auditable implementation tuned for one workflow: keep Claude and Codex limits visible without opening a dashboard, while keeping authentication handling explicit and local.
+There are already several AI usage monitors and menu bar utilities. usage-kun exists as a small, auditable implementation tuned for one workflow: keep Claude, Codex, and optional Gemini (Antigravity) limits visible without opening a dashboard, while keeping authentication handling explicit and local.
 
 The emphasis is on:
 
 - local-first behavior
 - clear provider boundaries
-- small native macOS UI
-- readable Swift code
+- small native macOS and Windows UI
+- readable Swift and C# code
 - privacy-first credential handling
 
 ## Limitations
 
 - Official usage endpoints can change without notice.
 - Claude local-log quota estimates are best-effort. They deduplicate repeated JSONL rows by `requestId` and `message.id`, and can self-calibrate after opt-in official Claude usage sync succeeds.
-- Official sync requires existing Claude Code / Codex CLI sign-in state on the same Mac.
-- Notifications are intended for the packaged `UsageKun.app` build.
-- The app is ad-hoc signed but not notarized, so first launch of a downloaded copy needs a one-time Gatekeeper approval.
+- Official sync requires existing Claude Code / Codex CLI sign-in state on the same OS where usage-kun runs.
+- Gemini requires the running, signed-in Antigravity IDE. Its local API may change, and unavailable quota stays unknown.
+- Notifications are intended for the packaged macOS `UsageKun.app` build; Windows toast notifications are not implemented.
+- The macOS app is ad-hoc signed but not notarized, so first launch of a downloaded copy needs a one-time Gatekeeper approval. The Windows executable is unsigned.
+- See the [Windows guide](docs/windows.md#validation-and-limits) for Windows validation status and differences in local-log support.
 
 ## Release History
 
 ### v0.4.1
 
-- Publish native Windows x64 and ARM64 downloads with official usage sync and Gemini support.
+- Publish native Windows x64 and ARM64 downloads with official Claude / Codex usage sync and Gemini quota from Antigravity.
 - Add Windows build, core checks, WPF integration checks, and packaging to CI.
 - Keep macOS behavior from v0.4.0 and align the release version.
 
@@ -277,7 +342,7 @@ Details: [docs/release-notes-v0.4.1.md](docs/release-notes-v0.4.1.md)
 
 ### v0.4.0
 
-- Add optional Gemini (Antigravity) quota display.
+- Add optional Gemini (Antigravity) quota display on macOS.
 - Fix pinned widget refresh/settings controls; Settings opens in its own window.
 - Show Codex 1W or 5H labels according to the actual limit duration.
 
@@ -362,6 +427,8 @@ Initial public release.
 
 ## Development
 
+On macOS:
+
 ```sh
 swift build
 swift run UsageKunCoreCheck
@@ -384,6 +451,8 @@ Build a local release zip:
 ```sh
 ./Scripts/package_release_zip.sh
 ```
+
+For Windows build, core checks, WPF checks, and packaging commands, see [Windows: Build and check](docs/windows.md#build-and-check).
 
 ## License
 

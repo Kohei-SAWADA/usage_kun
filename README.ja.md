@@ -13,15 +13,17 @@
   <strong>日本語</strong>
 </p>
 
-usage-kun は、Claude と Codex の使用量を作業中にすぐ確認するための、privacy-first な macOS メニューバーアプリです。
+usage-kun は、Codex、Claude、Gemini（Antigravity）の使用量を作業中にすぐ確認できる、プライバシーを重視した小さな常駐アプリです。macOS ではメニューバー、Windows ではシステムトレイとデスクトップのメーターから確認できます。Gemini の表示は設定から有効にできます。
 
-これは個人用の小さなユーティリティとして作っています。大きな分析ダッシュボードではなく、作業中に一瞬見るための使用量メーターです。初期状態ではローカル CLI ログを読み、必要な場合だけ opt-in で Claude Code / Codex CLI サインイン token を読み取り専用で再利用し、公式の 5-hour / 1-week 残量を取得します。この app は token を保存・更新・log 出力しません。
+これは個人用の小さなユーティリティとして作っています。大きな分析ダッシュボードではなく、作業中に一瞬見るための使用量メーターです。初期状態ではローカル CLI ログを読み、必要な場合だけ Claude Code / Codex CLI の既存のサインイン状態を読み取り専用で再利用し、公式の残量を取得します。Codex は実際の制限期間に合わせて 5 時間・1 週間などを表示します。このアプリは認証トークンを保存・更新・ログ出力しません。
 
 このプロジェクトは OpenAI、Anthropic、その他 provider の公式アプリではありません。各社による承認・提携・提供を受けたものでもありません。
 
 ## ダウンロード
 
-[最新リリース](https://github.com/Kohei-SAWADA/usage_kun/releases/latest)から、お使いの環境に合う ZIP を選んでください。
+現在の最新バージョンは [v0.4.1](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.1) です。Windows x64 / ARM64 版が加わり、macOS と Windows で Codex・Claude に加えて **Antigravity 内の Gemini** の残量も確認できます。Gemini 対応は macOS では v0.4.0 から、Windows では v0.4.1 から利用できます。
+
+[最新リリース](https://github.com/Kohei-SAWADA/usage_kun/releases/latest)から、お使いの環境に合う ZIP を選んでください。下のリンクから直接ダウンロードできます。
 
 | 環境 | ZIP |
 | --- | --- |
@@ -29,11 +31,17 @@ usage-kun は、Claude と Codex の使用量を作業中にすぐ確認する�
 | Windows（Intel / AMD） | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) |
 | Windows ARM64・Apple Silicon の Parallels | [UsageKun-Windows-arm64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-arm64.zip) |
 
-Windows は展開して `UsageKun.exe` を起動します。.NET ランタイムは同梱しています。Windows 側の CLI / Antigravity でサインインし、設定から同期を有効にしてください。[Windows ガイド](docs/windows.md)に導入手順と検証範囲を記載しています。
+一般的な Intel / AMD の Windows PC は **x64**、Apple Silicon の Mac 上の Parallels などで動く Windows は **ARM64** を選びます。分からない場合は、Windows の **設定 > システム > バージョン情報 > システムの種類** でプロセッサを確認してください。
+
+Windows 版は .NET ランタイムを同梱しているため、追加の .NET インストールやビルドは不要です。GitHub の **Code > Download ZIP** やリリース欄の **Source code** は開発用ソースなので、アプリを使う場合は上記の ZIP を選んでください。
+
+導入手順: [Windows](#windows-版をインストール) / [macOS](#release-zip-からインストール) / [Gemini を有効にする](#geminiantigravityを有効にする)。Windows の詳細は [Windows ガイド](docs/windows.md)を参照してください。
 
 ## スクリーンショット
 
-usage-kun は、作業画面の邪魔をせずに常に見えることを意識しています。macOS 右上のメニューバーアイコンをクリックすると popover が開き、左上には固定ホームメーターを表示できます。Settings では Codex だけ、Claude だけ、または両方の表示に切り替えられます。
+usage-kun は、作業画面の邪魔をせずに常に見えることを意識しています。macOS 右上のメニューバーアイコンをクリックすると popover が開き、左上には固定ホームメーターを表示できます。Settings > Providers で Codex、Claude、Gemini（Antigravity）の表示を個別に切り替えられます。Windows ではシステムトレイと移動可能なフローティングメーターから確認できます。
+
+以下は Codex と Claude を表示した macOS 版の画像です。設定画面の画像は Gemini 追加前のもので、現在は Gemini（Antigravity）の項目もあります。
 
 <p align="center">
   <img src="assets/screenshots/menu-bar-popover.png" alt="macOS 右上のメニューバーアイコンから開いた Codex と Claude Code の使用量 popover。" width="420">
@@ -62,29 +70,35 @@ usage-kun は、作業画面の邪魔をせずに常に見えることを意識�
 ## 機能
 
 - SwiftPM、AppKit、SwiftUI で作った native macOS メニューバーアプリ
+- .NET 8 / WPF で作った Windows システムトレイアプリ（x64 / ARM64）
 - メニューバーから開く provider card つき compact popover
 - ひと目確認用の固定デスクトップウィジェット
-- Claude Code / Codex の 5-hour primary window と 1-week secondary window のバー表示
-- Claude だけ / Codex だけ / 両方、を選べるプロバイダ表示チェック欄
+- Claude Code の使用量バーと、実際の制限期間に合った Codex の表示（週制限のみのプランにも対応）
+- 起動中の Antigravity IDE から Gemini の 5 時間・1 週間の残量を表示（任意で有効化）
+- Codex、Claude、Gemini（Antigravity）を個別に選べるプロバイダ表示チェック欄
 - 公式同期が使えない場合のローカルログに基づく使用量推定
 - Claude Code / Codex CLI サインインを利用した opt-in の公式使用量 sync
-- `.app` 版での低残量・reset 通知
+- macOS の `.app` 版での低残量・reset 通知
 - token を保存・更新・log 出力しない read-only な token 再利用
 - telemetry や analytics SDK は含めない
 
 ## 必要環境
 
-- macOS 14 以降
-- Swift 6 以降
-- Xcode Command Line Tools
+- macOS 14 以降、または Windows 10 / 11（x64 / ARM64）
+- macOS の配布 ZIP は Apple Silicon 用です。Intel Mac ではソースからビルドしてください。
+- ソースからビルドする場合のみ、macOS は Swift 6 以降と Xcode Command Line Tools、Windows は .NET 8 SDK が必要です。
+- 公式同期を使う場合は、usage-kun と同じ OS・ユーザーで Claude Code / Codex CLI にサインインしてください。Gemini を使う場合は、その環境で Antigravity IDE を起動し、サインインしたままにしてください。
 
 ## すぐ試す
 
 ### Release ZIP からインストール
 
+以下は macOS 版の手順です。
+
 1. [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest) から最新の `UsageKun-macOS.zip` を download します。
 2. 展開して `UsageKun.app` を `/Applications` など好きな場所に移動します。
 3. `UsageKun.app` を開きます。
+4. 公式残量を使う場合は、この Mac 上の Claude Code / Codex CLI でサインインし、**Settings > Official usage** の **Claude official usage** / **Codex official usage** を有効にします。Gemini は[以下の手順](#geminiantigravityを有効にする)で設定してください。
 
 ### 初回起動時:「マルウェアが含まれていないことを確認できませんでした」と出る場合
 
@@ -110,7 +124,35 @@ xattr -d com.apple.quarantine /Applications/UsageKun.app
 
 download した binary をそもそも信頼したくない場合は、下記の手順でソースから build してください。結果は同じで、Gatekeeper の承認も不要です。
 
+### Windows 版をインストール
+
+1. 上の[ダウンロード表](#ダウンロード)から `UsageKun-Windows-x64.zip` または `UsageKun-Windows-arm64.zip` をダウンロードします。リリースページから選ぶ場合は **Assets** 内にあります。
+2. ZIP を右クリックして **すべて展開** を選び、任意のフォルダへ展開します。
+3. 展開先の `UsageKun.exe` を起動します。ZIP 内から直接実行せず、展開したフォルダはそのまま保存してください。
+4. デスクトップに使用量メーター、タスクバー右側の通知領域にアイコンが表示されます。見当たらない場合は、隠れているアイコンの一覧も確認してください。トレイアイコンを右クリックして **Settings...** を開きます。
+5. **Providers** で表示したいサービスを選びます。Claude / Codex の公式残量を使う場合は、先に **Windows 内の**各 CLI でサインインし、**Sync sources** の **Official Claude usage sync (opt-in)** / **Official Codex usage sync (opt-in)** を有効にして **Save** を押します。Gemini は[以下の手順](#geminiantigravityを有効にする)で設定してください。
+
+Parallels でも、Mac 側のサインイン状態は自動では引き継がれません。Windows 側でサインインしてください。自動起動は、Settings > Behavior の **Start with Windows** で切り替えられます。
+
+### Gemini（Antigravity）を有効にする
+
+対象は **Antigravity IDE の Models & Usage > Gemini Models** に表示される 5 時間・1 週間の残量です。Gemini アプリや Gemini API の利用料金を表示する機能ではありません。初期状態では無効です。
+
+1. usage-kun と同じ OS・ユーザーで Antigravity IDE を起動し、サインインします。Antigravity は開いたままにしてください。
+2. usage-kun の **Settings** を開き、お使いの OS に合わせて設定します。
+
+| 環境 | 有効にする項目 |
+| --- | --- |
+| macOS | **Providers > Gemini (Antigravity)** をオンにします。変更は自動で保存されます。 |
+| Windows | **Providers > Show Gemini (Antigravity)** と **Sync sources > Read Gemini quota from Antigravity (opt-in)** の両方をオンにし、**Save** を押します。 |
+
+3. usage-kun の更新ボタン（Windows はトレイメニューの **Refresh now** も利用可）を押して残量を確認します。
+
+取得できない場合は、Antigravity の **Models & Usage** を開いて Gemini の残量が表示されることを確認し、もう一度更新してください。取得できない値は不明のまま表示し、残量 0% として扱いません。Antigravity の認証トークンを usage-kun に入力する必要はありません。
+
 ### ソースから実行
+
+以下は macOS 用です。Windows のビルド手順は [Windows ガイド](docs/windows.md#build-and-check)を参照してください。
 
 ソースから実行:
 
@@ -142,7 +184,9 @@ swift run UsageKunCoreCheck --claude-estimate
 
 ## 既に使っている場合のアップデート
 
-設定や較正データは app bundle の外に保存されているため、app を更新しても通常は設定は消えません。`~/.codex`、`~/.claude`、`~/Library/Application Support/usage_kun` を削除する必要はありません。
+設定や較正データはアプリとは別に保存されているため、更新しても通常は設定は消えません。macOS の `~/Library/Application Support/usage_kun`、Windows の `%APPDATA%\usage_kun` は削除しないでください。Claude Code / Codex CLI のサインイン情報やログも、そのまま利用できます。
+
+以下の Git / ソース ZIP / macOS リリース ZIP の手順は macOS 用です。
 
 ### Git clone で入れた場合
 
@@ -176,13 +220,23 @@ open UsageKun.app
 
 新しい version の初回起動時に「マルウェアが含まれていないことを確認できませんでした」の警告が再度出ることがあります。その場合は [初回起動時の手順](#初回起動時マルウェアが含まれていないことを確認できませんでしたと出る場合) と同じ方法で許可してください。Claude 公式 sync を有効にしている場合、更新後に macOS が Claude Code の Keychain access を再度確認することがあります。
 
+### Windows 版の場合
+
+1. [最新リリース](https://github.com/Kohei-SAWADA/usage_kun/releases/latest)から、お使いの Windows に合う ZIP をダウンロードします。
+2. 起動中の usage-kun のトレイアイコンを右クリックし、**Quit usage_kun** で終了します。
+3. ZIP を展開し、以前の保存先のアプリ一式を新しい内容に置き換えます。同じ保存先を使うと、ショートカットや自動起動の参照先もそのまま利用できます。
+4. 新しい `UsageKun.exe` を起動します。
+
+保存先を変更した場合は、Settings の **Start with Windows** を再度保存して、自動起動の参照先も更新してください。
+
 ## データソース
 
 usage-kun は段階的なデータ取得モデルを使います。
 
 1. Local logs: Claude Code と Codex の既知のローカル使用量ログを読んで推定します。
-2. Official usage sync: opt-in の場合のみ、ローカル CLI サインイン token を読み取り専用で再利用し、provider の 5-hour / 1-week 使用量 endpoint から値を取得します。
+2. Official usage sync: opt-in の場合のみ、同じ OS の CLI サインイン状態を読み取り専用で再利用し、公式残量と制限期間を取得します。macOS / Windows に対応しています。
 3. Claude calibration: Claude 公式 sync が成功した場合、その時点の公式値を使ってローカル推定用の 5-hour cap を較正できます。
+4. Gemini（Antigravity）: 有効にした場合のみ、起動中のローカル Antigravity IDE から Gemini の残量を取得します。取得できない場合に CLI ログや別サービスの値で補うことはしません。
 
 詳細は [docs/providers.md](docs/providers.md) を参照してください。
 
@@ -194,6 +248,7 @@ usage-kun は段階的なデータ取得モデルを使います。
 - 会話本文の表示や外部送信はしません。
 - browser cookie の自動読み取りはしません。
 - CLI sign-in token は refresh せず、app 内に保存せず、log に出しません。
+- Antigravity の一時的な接続用認証情報は、そのローカルサービスへの接続にのみ使用し、保存・ログ出力しません。アカウント認証は Antigravity 自身が行います。
 - この release では Admin API key や manual cookie header を収集しません。
 
 詳しくは [PRIVACY.md](PRIVACY.md) を参照してください。
@@ -214,6 +269,7 @@ Sources/UsageKunCore/
     ClaudeCalibrationStore.swift
   OnboardingDetector.swift
   Providers/
+    AntigravityUsageService.swift
     CLIOAuthUsageService.swift
     LocalLogUsageService.swift
   UsageNotificationPlanner.swift
@@ -222,6 +278,13 @@ Sources/UsageKunCore/
 
 Tests/UsageKunCoreCheck/
   main.swift
+
+Windows/
+  UsageKun.Windows.sln
+  src/UsageKun.App/
+  src/UsageKun.Core/
+  tests/UsageKun.Core.Check/
+  tests/UsageKun.UI.Check/
 
 assets/screenshots/
   pinned-desktop-meter.png
@@ -239,34 +302,36 @@ Packaging/
 Scripts/
   package_app.sh
   package_release_zip.sh
+  package_windows.ps1
   preflight_publication.sh
 ```
 
 ## なぜ別の使用量メーターを作るのか
 
-AI 使用量 monitor や menu bar utility はすでに複数あります。usage-kun は、その中で「Claude と Codex の残量を dashboard を開かずに見たい」という 1 つの workflow に絞った、小さく監査しやすい実装です。
+AI 使用量 monitor や menu bar utility はすでに複数あります。usage-kun は、その中で「Codex、Claude、Antigravity 内の Gemini の残量を dashboard を開かずに見たい」という 1 つの workflow に絞った、小さく監査しやすい実装です。
 
 重視している点:
 
 - local-first な動作
 - provider ごとの境界を混ぜない設計
-- 小さな native macOS UI
-- 読みやすい Swift code
+- 小さな native macOS / Windows UI
+- 読みやすい Swift / C# code
 - privacy-first な credential handling
 
 ## 制限
 
 - 公式 usage endpoint は予告なく変わる可能性があります。
 - Claude local-log quota 推定は best-effort です。`requestId` と `message.id` による重複排除を行い、opt-in の Claude 公式使用量 sync が成功した後は cap を自己較正できます。
-- 公式 sync には、同じ Mac 上に Claude Code / Codex CLI のサインイン状態が必要です。
-- 通知は packaged app (`UsageKun.app`) での利用を想定しています。
-- この app は ad-hoc 署名のみで notarization はしていないため、download した copy の初回起動時に一度だけ Gatekeeper の許可が必要です。
+- 公式 sync には、同じ OS・ユーザーでの Claude Code / Codex CLI のサインイン状態が必要です。Mac と Windows の間で自動共有はしません。
+- Gemini は起動中・サインイン済みの Antigravity IDE が必要です。IDE の内部 API が変わると取得できなくなる場合があります。
+- 通知は macOS の packaged app (`UsageKun.app`) 向けです。Windows の通知と Codex SQLite ログ読み取りは未対応です。Windows の検証範囲は [Windows ガイド](docs/windows.md#validation-and-limits)を参照してください。
+- macOS 版は ad-hoc 署名のみで notarization はしていないため、download した copy の初回起動時に一度だけ Gatekeeper の許可が必要です。Windows 版の実行ファイルは未署名です。
 
 ## リリース履歴
 
 ### v0.4.1
 
-- Windows x64 / ARM64 版を公開しました。公式使用量同期と Gemini に対応しています。
+- Windows x64 / ARM64 版を公開しました。Claude / Codex の公式使用量同期と、Antigravity 内の Gemini の残量表示に対応しています。
 - Windows のビルド・コアチェック・WPF 統合チェック・パッケージ作成を CI に追加しました。
 - macOS の動作は v0.4.0 と同じで、リリース番号を揃えました。
 
@@ -274,7 +339,7 @@ AI 使用量 monitor や menu bar utility はすでに複数あります。usage
 
 ### v0.4.0
 
-- Gemini（Antigravity）の使用量表示を設定から有効にできます。
+- macOS に Gemini（Antigravity）の使用量表示を追加しました。設定から有効にできます。
 - 固定パネルの更新・設定ボタンを修正し、設定を独立したウィンドウで開きます。
 - Codex の制限期間に応じて「1W」「5H」を表示します。週制限だけの場合に「5H」と表示される問題を修正しました。
 
@@ -358,6 +423,8 @@ packaging とセキュリティ強化の release です。機能変更はあり�
 - privacy-first な credential handling と no telemetry を基本方針にしました。
 
 ## 開発
+
+以下は macOS 用です。Windows のビルド・チェック・パッケージ作成は [Windows ガイド](docs/windows.md#build-and-check)を参照してください。
 
 ```sh
 swift build
