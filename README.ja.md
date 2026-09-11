@@ -1,7 +1,7 @@
 # usage-kun
 
 <p align="center">
-  <img src="assets/usage-kun-thumbnail.png" alt="Claude と Codex の使用量メーターを示す usage-kun サムネイル">
+  <img src="assets/usage-kun-thumbnail.png" alt="Codex、Claude、Gemini の使用量メーターを示す usage-kun サムネイル">
 </p>
 
 <p align="center">

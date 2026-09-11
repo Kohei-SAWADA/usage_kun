@@ -1,7 +1,7 @@
 # usage-kun
 
 <p align="center">
-  <img src="assets/usage-kun-thumbnail.png" alt="usage-kun thumbnail showing an AI usage meter for Claude and Codex">
+  <img src="assets/usage-kun-thumbnail.png" alt="usage-kun thumbnail showing an AI usage meter for Codex, Claude and Gemini">
 </p>
 
 <p align="center">
