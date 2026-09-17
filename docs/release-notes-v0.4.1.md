@@ -1,5 +1,7 @@
 # usage_kun v0.4.1
 
+> Historical release notes. Starting with v0.4.2, Windows support and new downloads are limited to Intel / AMD (x64). Windows ARM, including Parallels on Apple Silicon, is no longer supported. macOS Apple Silicon support is unchanged. The assets and validation below describe v0.4.1 only.
+
 Windows downloads are now available alongside the macOS app.
 
 | Platform | Download |

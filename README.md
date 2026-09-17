@@ -23,15 +23,14 @@ This project is not affiliated with, endorsed by, or sponsored by OpenAI, Anthro
 
 ## Downloads
 
-The latest version is [v0.4.1](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.1), with native Windows downloads for x64 and ARM64. Gemini (Antigravity), added on macOS in v0.4.0, is also available on Windows in this release.
+The latest version is [v0.4.2](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.2). Windows support is limited to Intel / AMD PCs (x64). Windows ARM, including Windows on Apple Silicon Macs, is no longer supported. macOS support, including Apple Silicon, is unchanged. Gemini (Antigravity) is available on macOS since v0.4.0 and Windows since v0.4.1.
 
 Choose your platform from [the latest release](https://github.com/Kohei-SAWADA/usage_kun/releases/latest):
 
 | Platform | ZIP |
 | --- | --- |
 | macOS (Apple Silicon) | [UsageKun-macOS.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-macOS.zip) |
-| Windows (Intel / AMD) | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) |
-| Windows ARM64 / Parallels on Apple Silicon | [UsageKun-Windows-arm64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-arm64.zip) |
+| Windows (Intel / AMD, x64) | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) |
 
 For Windows, follow [Install On Windows](#install-on-windows) below. The ZIP includes the .NET runtime; no SDK or separate runtime installation is needed. Download the app ZIP from the table above or **Assets** on the release page. **Code > Download ZIP** and **Source code** contain development source files.
 
@@ -83,7 +82,7 @@ usage-kun is designed to stay visible without becoming a dashboard. Click the me
 
 ## Requirements
 
-- macOS 14 or newer (Apple Silicon release ZIP), or Windows 10/11 (x64 or ARM64)
+- macOS 14 or newer (Apple Silicon release ZIP), or Windows 10/11 (Intel / AMD, x64 only)
 - Intel Mac users can build from source.
 - For official Claude / Codex sync: an existing CLI sign-in on the same OS where usage-kun runs
 - For Gemini: the Antigravity IDE running and signed in under the same OS user; enable Gemini in usage-kun Settings
@@ -126,8 +125,8 @@ If you prefer not to trust a downloaded binary at all, build it yourself from so
 
 ### Install On Windows
 
-1. Open Windows **Settings > System > About** and check **System type**. Choose **x64** for an Intel / AMD PC, or **ARM64** for Windows on ARM, including Parallels on Apple Silicon.
-2. Download [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) or [UsageKun-Windows-arm64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-arm64.zip).
+1. Open Windows **Settings > System > About** and check **System type**. An Intel / AMD PC with an x64-based processor is required. Windows ARM is unsupported, including Windows running on an Apple Silicon Mac.
+2. Download [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip).
 3. Right-click the downloaded ZIP, select **Extract All...**, and keep the extracted files together in a folder where you want to use the app.
 4. Open that folder and double-click `UsageKun.exe`. No installer or separate .NET installation is required. The app appears in the system tray near the clock; expand the hidden icons if needed.
 5. Right-click the usage-kun tray icon and choose **Settings...**. Under **Providers**, select the providers you use.
@@ -184,7 +183,7 @@ For Windows source builds and checks, see [Windows: Build and check](docs/window
 
 ## Updating An Existing Install
 
-Your settings and calibration data are stored separately from the app, so updating should not remove your preferences. On macOS, keep `~/.codex`, `~/.claude`, and `~/Library/Application Support/usage_kun`. On Windows, keep `%USERPROFILE%\.codex`, `%USERPROFILE%\.claude`, and `%APPDATA%\usage_kun`.
+Updates are installed manually; the app does not download or install them automatically. Your settings and calibration data are stored separately from the app, so no settings export or migration is needed. On macOS, keep `~/.codex`, `~/.claude`, `~/.claude.json`, and `~/Library/Application Support/usage_kun`. On Windows, keep `%USERPROFILE%\.codex`, `%USERPROFILE%\.claude`, `%USERPROFILE%\.claude.json`, and `%APPDATA%\usage_kun`. These contain the existing CLI sign-in/log data, plan information, and app preferences used after updating.
 
 ### If You Installed From Git
 
@@ -215,19 +214,21 @@ On macOS:
 1. Download the latest `UsageKun-macOS.zip` from [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest).
 2. Quit the old usage-kun app from the menu bar.
 3. Unzip `UsageKun-macOS.zip`.
-4. Replace your old `UsageKun.app` with the new one.
-5. Open the new `UsageKun.app`.
+4. Replace your old `UsageKun.app` with the new one at the same location, such as `/Applications/UsageKun.app`.
+5. Open the new `UsageKun.app` and refresh the meter. Your existing provider and sync settings are retained.
+
+If you want to move the app to a different location, first turn off **Settings > Meter > Launch at login** in the old app. Quit it, move the new app, then open it and turn **Launch at login** back on if desired. If macOS requests approval, allow usage-kun in **System Settings > General > Login Items**.
 
 On first launch of the new version, macOS may show the "could not verify" warning again; approve it the same way as in [First Launch](#first-launch-apple-could-not-verify-usagekun-is-free-of-malware). If official Claude sync is enabled, macOS may ask for Claude Code Keychain access again after the update.
 
 ### If You Used The Release ZIP (Windows)
 
-1. Download the latest Windows release ZIP for your architecture from [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest).
+1. On an Intel / AMD Windows PC (x64), download the latest `UsageKun-Windows-x64.zip` from [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest). Windows ARM installations have no supported update from v0.4.2 onward; the x64 ZIP is not a supported replacement on Windows ARM.
 2. Right-click the existing tray icon and choose **Quit usage_kun**.
-3. Use **Extract All...** to unpack the new ZIP, then replace the files in your existing app folder with the extracted files.
-4. Run `UsageKun.exe` from that folder. Your saved settings remain in `%APPDATA%\usage_kun`.
+3. Use **Extract All...** to unpack the new ZIP, then replace the complete app contents in your existing app folder with the extracted files. Keeping the same folder preserves existing shortcut and startup paths. No installer or uninstall step is required.
+4. Run `UsageKun.exe` from that folder, then choose **Refresh now** from the tray menu. Your saved settings and calibration remain in `%APPDATA%\usage_kun`.
 
-If you move the app to a different folder and use **Start with Windows**, save that setting again so startup uses the new location.
+If you move the app to a different folder, update your shortcuts. Open the new `UsageKun.exe`, then open **Settings > Behavior**, check **Start with Windows** if desired, and click **Save** so startup uses the new location.
 
 ## Data Sources
 
@@ -328,13 +329,21 @@ The emphasis is on:
 - Gemini requires the running, signed-in Antigravity IDE. Its local API may change, and unavailable quota stays unknown.
 - Notifications are intended for the packaged macOS `UsageKun.app` build; Windows toast notifications are not implemented.
 - The macOS app is ad-hoc signed but not notarized, so first launch of a downloaded copy needs a one-time Gatekeeper approval. The Windows executable is unsigned.
-- See the [Windows guide](docs/windows.md#validation-and-limits) for Windows validation status and differences in local-log support.
+- Windows reads Codex live quota from `logs_2.sqlite` and session JSONL logs; auxiliary token/thread statistics from `state_5.sqlite` are not implemented. See the [Windows guide](docs/windows.md#validation-and-limits) for Windows validation status.
 
 ## Release History
 
+### v0.4.2
+
+- Limit Windows support and downloads to Intel / AMD PCs (x64); end Windows ARM support, including Windows on Apple Silicon Macs.
+- Fix stale Windows Codex usage by also reading the local live quota database and selecting the newest valid General rate-limit record across it and session logs; model-specific limits no longer overwrite that quota.
+- Keep macOS behavior and Apple Silicon support unchanged, and clarify update steps for existing Windows and macOS installations.
+
+Details: [docs/release-notes-v0.4.2.md](docs/release-notes-v0.4.2.md)
+
 ### v0.4.1
 
-- Publish native Windows x64 and ARM64 downloads with official Claude / Codex usage sync and Gemini quota from Antigravity.
+- Publish native Windows x64 and ARM64 downloads with official Claude / Codex usage sync and Gemini quota from Antigravity. Windows ARM support ended in v0.4.2.
 - Add Windows build, core checks, WPF integration checks, and packaging to CI.
 - Keep macOS behavior from v0.4.0 and align the release version.
 

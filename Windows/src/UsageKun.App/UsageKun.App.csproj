@@ -10,11 +10,18 @@
     <AssemblyName>UsageKun</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>0.4.1</Version>
+    <Version>0.4.2</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Lets the project at least compile on macOS/Linux dev machines. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
+
+  <Target Name="ValidateWindowsArchitecture" BeforeTargets="PrepareForBuild;Publish">
+    <Error Condition="'$(RuntimeIdentifier)' != 'win-x64' Or '$(PlatformTarget)' != 'x64'"
+           Text="usage-kun supports Windows on Intel / AMD (win-x64) only." />
+  </Target>
 
   <ItemGroup>
     <!-- The WinForms implicit global usings collide with the WPF ones

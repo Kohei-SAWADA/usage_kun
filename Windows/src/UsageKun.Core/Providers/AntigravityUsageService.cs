@@ -125,9 +125,9 @@ public sealed class AntigravityUsageService : IAntigravityUsageService
             $ProgressPreference = 'SilentlyContinue'
             $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
             $rows = @()
-            $candidates = Get-CimInstance Win32_Process -Filter "Name='language_server_windows_x64.exe' OR Name='language_server_windows_arm64.exe' OR Name='language_server_windows_arm.exe'"
+            $candidates = Get-CimInstance Win32_Process -Filter "Name='language_server_windows_x64.exe'"
             foreach ($candidate in $candidates) {
-                if (-not $candidate.ExecutablePath -or $candidate.ExecutablePath -notmatch '(?i)\\resources\\app\\extensions\\antigravity\\bin\\language_server_windows_(x64|arm64|arm)\.exe$') { continue }
+                if (-not $candidate.ExecutablePath -or $candidate.ExecutablePath -notmatch '(?i)\\resources\\app\\extensions\\antigravity\\bin\\language_server_windows_x64\.exe$') { continue }
                 $owner = Invoke-CimMethod -InputObject $candidate -MethodName GetOwnerSid
                 if ($owner.Sid -ne $sid) { continue }
                 $match = [regex]::Match($candidate.CommandLine, '--csrf_token(?:=|\s+)([A-Za-z0-9_-]+)(?:\s|$)')

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
+using Microsoft.Data.Sqlite;
 using UsageKun.Core;
 
 // Lightweight core-logic check for the Windows build, mirroring the macOS
@@ -13,6 +14,8 @@ CheckConfigSchema();
 await CheckProviderVisibility();
 CheckClaudePlanResolution();
 await CheckCodexSessionRateLimits();
+await CheckCodexLiveRateLimits();
+await CheckCodexGeneralLimitsAndResetTimes();
 await CheckClaudeDedup();
 await CheckClaudeCalibration();
 CheckClaudePricing();
@@ -302,6 +305,170 @@ static async Task CheckCodexSessionRateLimits()
     {
         TryDelete(home);
     }
+}
+
+static async Task CheckCodexLiveRateLimits()
+{
+    var now = DateTimeOffset.Parse("2026-09-17T18:00:00+09:00", CultureInfo.InvariantCulture);
+    var home = TemporaryHome();
+    try
+    {
+        var sessions = Path.Combine(home, ".codex", "sessions");
+        Directory.CreateDirectory(sessions);
+        var sessionPath = Path.Combine(sessions, "rollout.jsonl");
+        File.WriteAllText(sessionPath, CodexTokenCountLine(Iso(now.AddMinutes(-10)),
+            """{"used_percent":20,"window_minutes":300}""", null));
+        var database = Path.Combine(home, ".codex", "logs_2.sqlite");
+        using (var connection = OpenCodexLogFixture(database))
+        {
+            AddCodexLiveFixture(connection, now.AddMinutes(-1), 100, 75, 65);
+            // A model-specific bucket and a tool response must not replace General limits.
+            for (var index = 0; index < 205; index++)
+                AddCodexLiveFixture(connection, now, 10 + index, 99, 99, "codex_other");
+            AddCodexLiveFixture(connection, now, 1, 98, 98, suffix: " response.output_item function_call ToolCall");
+            AddCodexLiveFixture(connection, now, 2, 97, 97, target: "unrelated_target");
+            using var nullTimestamp = connection.CreateCommand();
+            nullTimestamp.CommandText = "INSERT INTO logs SELECT $ts, NULL, target, feedback_log_body FROM logs LIMIT 1;";
+            nullTimestamp.Parameters.AddWithValue("$ts", now.ToUnixTimeSeconds());
+            nullTimestamp.ExecuteNonQuery();
+            using var malformed = connection.CreateCommand();
+            malformed.CommandText = "INSERT INTO logs VALUES ($ts, 3, 'codex_api::endpoint::responses_websocket', 'responses_websocket.stream_request websocket event: {\"type\":\"codex.rate_limits\",broken');";
+            malformed.Parameters.AddWithValue("$ts", now.ToUnixTimeSeconds());
+            malformed.ExecuteNonQuery();
+        }
+        var databaseBefore = File.ReadAllBytes(database);
+        var service = new LocalLogUsageService(home);
+        var snapshot = (await service.SnapshotsAsync(now, true, false)).Single();
+        ExpectClose(snapshot.Percent, 25, "newer live SQLite quota must replace stale session quota (80% -> 25% left)");
+        ExpectClose(snapshot.Weekly?.PercentLeft, 35, "live SQLite weekly window must remain paired with its primary window");
+        Expect(snapshot.Source == "Codex live rate limits", "live source must be identified");
+        Expect(snapshot.UpdatedAt == now.AddMinutes(-1).AddTicks(1), "SQLite nanoseconds must be converted to UTC ticks");
+        Expect(snapshot.ResetAt == now.AddMinutes(119).AddTicks(1), "live relative reset must use recorded time, not refresh time");
+        Expect(databaseBefore.SequenceEqual(File.ReadAllBytes(database)), "reading quota must not modify the Codex database");
+
+        // Both timestamp columns matter when two readings arrive in the same second.
+        using (var connection = OpenCodexLogFixture(database))
+            AddCodexLiveFixture(connection, now.AddMinutes(-1), 900_000_000, 80, 70);
+        snapshot = (await service.SnapshotsAsync(now, true, false)).Single();
+        ExpectClose(snapshot.Percent, 20, "newest nanosecond timestamp must win within the same second");
+
+        File.WriteAllText(sessionPath, CodexTokenCountLine(Iso(now),
+            """{"used_percent":30,"window_minutes":300}""", null));
+        snapshot = (await service.SnapshotsAsync(now, true, false)).Single();
+        ExpectClose(snapshot.Percent, 70, "newer session quota must replace older live quota");
+        Expect(snapshot.Source == "Codex session rate limits", "selection must compare timestamps across both sources");
+
+        Directory.Delete(sessions, true);
+        snapshot = (await service.SnapshotsAsync(now, true, false)).Single();
+        ExpectClose(snapshot.Percent, 20, "SQLite-only installations must not require a sessions directory");
+
+        // A running Codex process can keep recent committed records only in WAL.
+        using (var writer = OpenCodexLogFixture(database))
+        {
+            using var enableWal = writer.CreateCommand();
+            enableWal.CommandText = "PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0;";
+            enableWal.ExecuteNonQuery();
+            AddCodexLiveFixture(writer, now, 0, 50, 60, "codex");
+            Expect(File.Exists(database + "-wal"), "fixture must have an active WAL before the read");
+            snapshot = (await service.SnapshotsAsync(now, true, false)).Single();
+            ExpectClose(snapshot.Percent, 50, "read-only connection must see committed live quota in an active WAL");
+            using var uncommitted = writer.BeginTransaction();
+            using var update = writer.CreateCommand();
+            update.Transaction = uncommitted;
+            update.CommandText = "UPDATE logs SET feedback_log_body = 'pending write';";
+            update.ExecuteNonQuery();
+            snapshot = (await service.SnapshotsAsync(now, true, false)).Single();
+            ExpectClose(snapshot.Percent, 50, "read-only connection must retain committed quota during a concurrent write");
+            uncommitted.Rollback();
+        }
+
+        Directory.CreateDirectory(sessions);
+        File.WriteAllText(sessionPath, CodexTokenCountLine(Iso(now),
+            """{"used_percent":30,"window_minutes":300}""", null));
+        File.WriteAllText(database, "not a SQLite database");
+        snapshot = (await service.SnapshotsAsync(now, true, false)).Single();
+        ExpectClose(snapshot.Percent, 70, "unreadable live database must retain session fallback");
+        File.Delete(database);
+        using (var incompatible = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = database, Pooling = false }.ToString()))
+            incompatible.Open();
+        snapshot = (await service.SnapshotsAsync(now, true, false)).Single();
+        ExpectClose(snapshot.Percent, 70, "unknown SQLite schema must retain session fallback");
+        File.Delete(database);
+        await service.SnapshotsAsync(now, true, false);
+        Expect(!File.Exists(database), "missing database must never be created by a read");
+    }
+    finally { TryDelete(home); }
+}
+
+static SqliteConnection OpenCodexLogFixture(string database)
+{
+    var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = database, Pooling = false }.ToString());
+    connection.Open();
+    using var command = connection.CreateCommand();
+    command.CommandText = "CREATE TABLE IF NOT EXISTS logs (ts INTEGER, ts_nanos INTEGER, target TEXT, feedback_log_body TEXT);";
+    command.ExecuteNonQuery();
+    return connection;
+}
+
+static void AddCodexLiveFixture(SqliteConnection connection, DateTimeOffset timestamp, int nanos, double used, double weeklyUsed,
+    string? limitId = null, string suffix = "", string target = "codex_api::endpoint::responses_websocket")
+{
+    var payload = JsonSerializer.Serialize(new
+    {
+        type = "codex.rate_limits", metered_limit_name = limitId,
+        rate_limits = new
+        {
+            primary = new { used_percent = used, window_minutes = 300, reset_after_seconds = 7200 },
+            secondary = new { used_percent = weeklyUsed, window_minutes = 10080, reset_after_seconds = 172800 }
+        }
+    });
+    using var command = connection.CreateCommand();
+    command.CommandText = "INSERT INTO logs VALUES ($ts, $nanos, $target, $body);";
+    command.Parameters.AddWithValue("$ts", timestamp.ToUnixTimeSeconds());
+    command.Parameters.AddWithValue("$nanos", nanos);
+    command.Parameters.AddWithValue("$target", target);
+    command.Parameters.AddWithValue("$body", "responses_websocket.stream_request websocket event: " + payload + suffix);
+    command.ExecuteNonQuery();
+}
+
+static async Task CheckCodexGeneralLimitsAndResetTimes()
+{
+    var now = DateTimeOffset.Parse("2026-09-17T18:00:00+09:00", CultureInfo.InvariantCulture);
+    var home = TemporaryHome();
+    try
+    {
+        var sessions = Path.Combine(home, ".codex", "sessions");
+        Directory.CreateDirectory(sessions);
+        var path = Path.Combine(sessions, "rollout.jsonl");
+        File.WriteAllLines(path, new[]
+        {
+            CodexTokenCountLine(Iso(now.AddMinutes(-10)), """{"used_percent":20,"window_minutes":300,"reset_after_seconds":3600}""", null)
+                .Replace("\"rate_limits\":{", "\"rate_limits\":{\"limit_id\":\"codex\","),
+            CodexTokenCountLine(Iso(now.AddMinutes(-1)), """{"used_percent":95,"window_minutes":300}""", null)
+                .Replace("\"rate_limits\":{", "\"rate_limits\":{\"limit_id\":\"codex_other\",")
+        });
+        var service = new LocalLogUsageService(home);
+        var snapshot = (await service.SnapshotsAsync(now, true, false)).Single();
+        ExpectClose(snapshot.Percent, 80, "model-specific session bucket must not overwrite General quota");
+        Expect(snapshot.ResetAt == now.AddMinutes(50), "relative session reset must be anchored to event timestamp");
+        var utcSnapshot = (await service.SnapshotsAsync(now.ToUniversalTime(), true, false)).Single();
+        Expect(snapshot.Percent == utcSnapshot.Percent && snapshot.ResetAt == utcSnapshot.ResetAt,
+            "timezone offset must not change quota or reset instant");
+        snapshot = (await service.SnapshotsAsync(now.AddMinutes(51), true, false)).Single();
+        ExpectClose(snapshot.Percent, 100, "expired relative reset must not slide forward on every refresh");
+
+        foreach (var reset in new[] { now.AddHours(1).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
+            now.AddHours(1).ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture),
+            JsonSerializer.Serialize(Iso(now.AddHours(1))) })
+        {
+            File.WriteAllText(path, CodexTokenCountLine(Iso(now),
+                "{\"used_percent\":35,\"window_minutes\":300,\"resets_at\":" + reset + "}", null));
+            snapshot = (await service.SnapshotsAsync(now, true, false)).Single();
+            Expect(snapshot.ResetAt == now.AddHours(1), "Unix seconds, milliseconds, and ISO offsets must resolve to the same reset instant");
+            ExpectClose(snapshot.Percent, 65, "reset representation must not alter remaining percentage");
+        }
+    }
+    finally { TryDelete(home); }
 }
 
 static async Task CheckClaudeDedup()

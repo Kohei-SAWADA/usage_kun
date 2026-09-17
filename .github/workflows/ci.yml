@@ -35,7 +35,21 @@ jobs:
         run: dotnet run --project Windows/tests/UsageKun.Core.Check -c Release --no-build
       - name: Run isolated WPF checks
         run: dotnet run --project Windows/tests/UsageKun.UI.Check -c Release --no-build
+      - name: Verify bundled Windows x64 core checks
+        shell: pwsh
+        run: |
+          $checkDir = Join-Path $env:RUNNER_TEMP "usage-kun-core-check-x64"
+          dotnet publish Windows/tests/UsageKun.Core.Check -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o $checkDir
+          if ($LASTEXITCODE -ne 0) { throw "Bundled core check publish failed." }
+          & (Join-Path $checkDir "UsageKun.Core.Check.exe")
+          if ($LASTEXITCODE -ne 0) { throw "Bundled core checks failed." }
       - name: Package Windows x64
         run: ./Scripts/package_windows.ps1 -Runtime win-x64
-      - name: Package Windows ARM64
-        run: ./Scripts/package_windows.ps1 -Runtime win-arm64
+      - name: Upload Windows x64 release files
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: |
+            UsageKun-Windows-x64.zip
+            UsageKun-Windows-x64.zip.sha256
+          if-no-files-found: error

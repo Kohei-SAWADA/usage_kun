@@ -27,7 +27,7 @@ public partial class SettingsWindow : Window
         AntigravityUsageCheck.IsChecked = config.AntigravityUsageEnabled;
         DesktopWidgetCheck.IsChecked = config.DesktopWidgetEnabled;
         LaunchAtLoginCheck.IsChecked = config.LaunchAtLoginEnabled;
-        ConfigPathText.Text = $"usage_kun 0.4.1 · Windows\nSettings file: {new AppConfigStore().ConfigPath}";
+        ConfigPathText.Text = $"usage_kun 0.4.2 · Windows\nSettings file: {new AppConfigStore().ConfigPath}";
 
         foreach (var minutes in IntervalChoices)
         {
