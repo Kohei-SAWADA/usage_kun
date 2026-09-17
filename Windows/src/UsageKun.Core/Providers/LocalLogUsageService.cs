@@ -1,16 +1,16 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
+using Microsoft.Data.Sqlite;
 
 namespace UsageKun.Core;
 
 /// Port of the macOS LocalLogUsageService. Reads known Claude Code and Codex
 /// local logs under the user profile and aggregates them into UsageSnapshots.
 ///
-/// Windows differences from the macOS implementation:
-/// - Codex live rate limits come only from %USERPROFILE%\.codex\sessions\**\*.jsonl
-///   token_count events. The macOS build additionally reads ~/.codex/logs_2.sqlite
-///   and ~/.codex/state_5.sqlite through the preinstalled sqlite3 CLI, which
-///   Windows does not ship; a managed SQLite reader is a follow-up.
+/// Codex quota comes from the newest General rate-limit reading across session
+/// JSONL and the live logs_2.sqlite database. SQLite is bundled with the Windows
+/// app and opened read-only; no external sqlite3 installation is required.
 public sealed class LocalLogUsageService : IUsageService
 {
     private readonly string _home;
@@ -184,13 +184,13 @@ public sealed class LocalLogUsageService : IUsageService
 
     private CodexRateLimitSnapshot? LatestCodexRateLimit()
     {
+        var latest = LatestCodexLiveRateLimit();
         var sessions = Path.Combine(_home, ".codex", "sessions");
         if (!Directory.Exists(sessions))
         {
-            return null;
+            return latest;
         }
 
-        CodexRateLimitSnapshot? latest = null;
         var files = JsonlFiles(sessions)
             .OrderByDescending(FileModificationDate)
             .Take(50);
@@ -208,6 +208,88 @@ public sealed class LocalLogUsageService : IUsageService
 
         return latest;
     }
+
+    private CodexRateLimitSnapshot? LatestCodexLiveRateLimit()
+    {
+        var database = Path.Combine(_home, ".codex", "logs_2.sqlite");
+        if (!File.Exists(database)) return null;
+
+        try
+        {
+            using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+            {
+                DataSource = database,
+                Mode = SqliteOpenMode.ReadOnly,
+                Pooling = false,
+                DefaultTimeout = 1
+            }.ToString());
+            connection.Open();
+            using var command = connection.CreateCommand();
+            // Match the macOS source and exclude response/tool content before
+            // reading any bodies. Never execute SQL or JSON supplied by a log.
+            command.CommandText = """
+                SELECT ts, ts_nanos, feedback_log_body
+                FROM logs
+                WHERE target = 'codex_api::endpoint::responses_websocket'
+                  AND feedback_log_body LIKE '%responses_websocket.stream_request%'
+                  AND feedback_log_body LIKE '%websocket event: {"type":"codex.rate_limits"%'
+                  AND feedback_log_body NOT LIKE '%response.output_item%'
+                  AND feedback_log_body NOT LIKE '%function_call%'
+                  AND feedback_log_body NOT LIKE '%ToolCall%'
+                  AND length(feedback_log_body) <= 1048576
+                ORDER BY ts DESC, ts_nanos DESC;
+                """;
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                try
+                {
+                    if (reader.IsDBNull(0) || reader.IsDBNull(1) || reader.IsDBNull(2)) continue;
+                    var seconds = reader.GetInt64(0);
+                    var nanos = reader.GetInt64(1);
+                    if (seconds <= 0 || nanos is < 0 or >= 1_000_000_000) continue;
+                    var updatedAt = DateTimeOffset.FromUnixTimeSeconds(seconds).AddTicks(nanos / 100);
+                    var body = reader.GetString(2);
+                    const string marker = "websocket event: ";
+                    var start = body.IndexOf(marker, StringComparison.Ordinal);
+                    if (start < 0) continue;
+                    var jsonReader = new Utf8JsonReader(Encoding.UTF8.GetBytes(body[(start + marker.Length)..]));
+                    // Parse one object so tracing metadata after the event is allowed.
+                    using var document = JsonDocument.ParseValue(ref jsonReader);
+                    var root = document.RootElement;
+                    if (GetString(root, "type") != "codex.rate_limits" ||
+                        !IsGeneralCodexLimit(GetString(root, "metered_limit_name") ?? GetString(root, "limit_name")))
+                        continue;
+                    var limits = JsonValue.Property(root, "rate_limits");
+                    if (!IsGeneralCodexLimit(GetString(limits, "limit_id")) ||
+                        CLIOAuthUsageService.ParseCodexWindows(limits, updatedAt) is not { } reading)
+                        continue;
+                    return CodexSnapshotFromReading(reading, updatedAt, "Codex live rate limits");
+                }
+                catch (JsonException) { /* Ignore malformed or partially written events. */ }
+                catch (ArgumentOutOfRangeException) { /* Ignore invalid event timestamps. */ }
+                catch (InvalidCastException) { /* Ignore rows that do not match the log schema. */ }
+                catch (FormatException) { /* Ignore invalid timestamp columns. */ }
+                catch (OverflowException) { /* Ignore out-of-range timestamp columns. */ }
+            }
+        }
+        catch (SqliteException) { /* Missing schema, corrupt, busy, or unreadable: use session logs. */ }
+        catch (IOException) { /* Codex may rotate the database during a refresh. */ }
+        catch (UnauthorizedAccessException) { /* Keep session fallback when access is denied. */ }
+        return null;
+    }
+
+    // Codex's default quota bucket is "codex"; older logs omit the identifier.
+    // Named model buckets must never overwrite the General usage card.
+    private static bool IsGeneralCodexLimit(string? limitId) =>
+        string.IsNullOrWhiteSpace(limitId) || limitId.Trim().Equals("codex", StringComparison.OrdinalIgnoreCase);
+
+    private static CodexRateLimitSnapshot CodexSnapshotFromReading(OfficialUsageReading reading,
+        DateTimeOffset updatedAt, string source) => new(updatedAt,
+        new CodexRateLimit(reading.Primary.UsedPercent, reading.Primary.WindowMinutes, reading.Primary.ResetsAt),
+        reading.Secondary is { } secondary
+            ? new CodexRateLimit(secondary.UsedPercent, secondary.WindowMinutes, secondary.ResetsAt) : null,
+        source);
 
     private static void ReadCodexRateLimits(string file, Action<CodexRateLimitSnapshot> onSnapshot)
     {
@@ -238,12 +320,10 @@ public sealed class LocalLogUsageService : IUsageService
                     continue;
                 }
 
+                if (!IsGeneralCodexLimit(GetString(rateLimits, "limit_id"))) continue;
                 var updatedAt = ParseDate(GetString(root, "timestamp")) ?? FileModificationDate(file);
                 if (CLIOAuthUsageService.ParseCodexWindows(rateLimits, updatedAt) is not { } reading) continue;
-                var primary = new CodexRateLimit(reading.Primary.UsedPercent, reading.Primary.WindowMinutes, reading.Primary.ResetsAt);
-                var secondary = reading.Secondary is { } second
-                    ? new CodexRateLimit(second.UsedPercent, second.WindowMinutes, second.ResetsAt) : null;
-                onSnapshot(new CodexRateLimitSnapshot(updatedAt, primary, secondary, "Codex session rate limits"));
+                onSnapshot(CodexSnapshotFromReading(reading, updatedAt, "Codex session rate limits"));
             }
             catch (JsonException)
             {

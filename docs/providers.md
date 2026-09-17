@@ -96,6 +96,36 @@ Validation: `swift build`, `swift run UsageKunCoreCheck`, and the optional
 - ライブログがない場合は `~/.codex/sessions/**/*.jsonl` の `token_count` を fallback として読みます。
 - rate limit がまだ出ていない場合だけ、ローカルDBの token 集計を参考値として表示します。
 
+## Windows Codex quota (v0.4.2)
+
+Windows now compares the newest valid General Codex rate-limit event from
+`%USERPROFILE%\.codex\logs_2.sqlite` with session `token_count` events under
+`%USERPROFILE%\.codex\sessions`. Previously Windows read only the session
+files, so a newer live database value could be missed even after refreshing.
+A regression fixture reproduces the old 80% remaining display while the live
+event has 25% remaining. Model-specific limits must not replace the General
+Codex quota; explicit non-`codex` limit identifiers are excluded.
+
+The database is opened read-only through bundled Microsoft.Data.Sqlite. No CLI
+authentication is needed for this local source. Missing, unreadable, incompatible,
+or malformed live data falls back to the session logs. Auxiliary statistics in
+`state_5.sqlite` remain macOS-only.
+
+The opt-in official endpoint, account header, and preference order are unchanged:
+a successful official request wins; local quota is used when official sync is
+disabled or fails. The UI shows **remaining** quota (`100 - used_percent`), not
+used quota, and the tray reflects the most constrained available window. Quotas
+are snapshots, not sums of tokens or percentages across sessions. Actual window
+durations determine 5H / 1W / LIMIT labels.
+
+Event timestamps determine freshness, including subsecond live ordering. Unix
+reset timestamps and ISO 8601 offsets identify absolute instants; relative reset
+delays are anchored to the recorded event, not the time the meter rereads it.
+Automatic refresh and manual refresh keep their existing behavior. Local reset
+expiry handling is unchanged. Live account comparison on a physical Windows
+x64 PC remains unverified; regression checks use synthetic data. The macOS
+provider, display, and configuration implementations are unchanged.
+
 ## Claude ローカルログ
 
 現在の同期方法:

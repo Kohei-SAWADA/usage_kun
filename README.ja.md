@@ -21,17 +21,14 @@ usage-kun は、Codex、Claude、Gemini（Antigravity）の使用量を作業中
 
 ## ダウンロード
 
-現在の最新バージョンは [v0.4.1](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.1) です。Windows x64 / ARM64 版が加わり、macOS と Windows で Codex・Claude に加えて **Antigravity 内の Gemini** の残量も確認できます。Gemini 対応は macOS では v0.4.0 から、Windows では v0.4.1 から利用できます。
+現在の最新バージョンは [v0.4.2](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.2) です。Windows の対応対象は Intel / AMD（x64）の PC のみです。Apple Silicon の Mac 上で動く Windows を含め、Windows ARM の対応は終了しました。Apple Silicon を含む macOS の対応は従来どおりです。Gemini（Antigravity）対応は macOS では v0.4.0 から、Windows では v0.4.1 から利用できます。
 
 [最新リリース](https://github.com/Kohei-SAWADA/usage_kun/releases/latest)から、お使いの環境に合う ZIP を選んでください。下のリンクから直接ダウンロードできます。
 
 | 環境 | ZIP |
 | --- | --- |
 | macOS（Apple Silicon） | [UsageKun-macOS.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-macOS.zip) |
-| Windows（Intel / AMD） | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) |
-| Windows ARM64・Apple Silicon の Parallels | [UsageKun-Windows-arm64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-arm64.zip) |
-
-一般的な Intel / AMD の Windows PC は **x64**、Apple Silicon の Mac 上の Parallels などで動く Windows は **ARM64** を選びます。分からない場合は、Windows の **設定 > システム > バージョン情報 > システムの種類** でプロセッサを確認してください。
+| Windows（Intel / AMD、x64） | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) |
 
 Windows 版は .NET ランタイムを同梱しているため、追加の .NET インストールやビルドは不要です。GitHub の **Code > Download ZIP** やリリース欄の **Source code** は開発用ソースなので、アプリを使う場合は上記の ZIP を選んでください。
 
@@ -70,7 +67,7 @@ usage-kun は、作業画面の邪魔をせずに常に見えることを意識�
 ## 機能
 
 - SwiftPM、AppKit、SwiftUI で作った native macOS メニューバーアプリ
-- .NET 8 / WPF で作った Windows システムトレイアプリ（x64 / ARM64）
+- .NET 8 / WPF で作った Windows システムトレイアプリ（Intel / AMD、x64）
 - メニューバーから開く provider card つき compact popover
 - ひと目確認用の固定デスクトップウィジェット
 - Claude Code の使用量バーと、実際の制限期間に合った Codex の表示（週制限のみのプランにも対応）
@@ -84,7 +81,7 @@ usage-kun は、作業画面の邪魔をせずに常に見えることを意識�
 
 ## 必要環境
 
-- macOS 14 以降、または Windows 10 / 11（x64 / ARM64）
+- macOS 14 以降、または Windows 10 / 11（Intel / AMD、x64 のみ）
 - macOS の配布 ZIP は Apple Silicon 用です。Intel Mac ではソースからビルドしてください。
 - ソースからビルドする場合のみ、macOS は Swift 6 以降と Xcode Command Line Tools、Windows は .NET 8 SDK が必要です。
 - 公式同期を使う場合は、usage-kun と同じ OS・ユーザーで Claude Code / Codex CLI にサインインしてください。Gemini を使う場合は、その環境で Antigravity IDE を起動し、サインインしたままにしてください。
@@ -126,13 +123,13 @@ download した binary をそもそも信頼したくない場合は、下記の
 
 ### Windows 版をインストール
 
-1. 上の[ダウンロード表](#ダウンロード)から `UsageKun-Windows-x64.zip` または `UsageKun-Windows-arm64.zip` をダウンロードします。リリースページから選ぶ場合は **Assets** 内にあります。
-2. ZIP を右クリックして **すべて展開** を選び、任意のフォルダへ展開します。
-3. 展開先の `UsageKun.exe` を起動します。ZIP 内から直接実行せず、展開したフォルダはそのまま保存してください。
-4. デスクトップに使用量メーター、タスクバー右側の通知領域にアイコンが表示されます。見当たらない場合は、隠れているアイコンの一覧も確認してください。トレイアイコンを右クリックして **Settings...** を開きます。
-5. **Providers** で表示したいサービスを選びます。Claude / Codex の公式残量を使う場合は、先に **Windows 内の**各 CLI でサインインし、**Sync sources** の **Official Claude usage sync (opt-in)** / **Official Codex usage sync (opt-in)** を有効にして **Save** を押します。Gemini は[以下の手順](#geminiantigravityを有効にする)で設定してください。
-
-Parallels でも、Mac 側のサインイン状態は自動では引き継がれません。Windows 側でサインインしてください。自動起動は、Settings > Behavior の **Start with Windows** で切り替えられます。
+1. Windows の **設定 > システム > バージョン情報 > システムの種類** で、Intel / AMD の x64 ベースのプロセッサであることを確認します。Apple Silicon の Mac 上で動く Windows を含め、Windows ARM は対象外です。
+2. 上の[ダウンロード表](#ダウンロード)から `UsageKun-Windows-x64.zip` をダウンロードします。リリースページから選ぶ場合は **Assets** 内にあります。
+3. ZIP を右クリックして **すべて展開** を選び、任意のフォルダへ展開します。
+4. 展開先の `UsageKun.exe` を起動します。ZIP 内から直接実行せず、展開したファイルは同じフォルダに保存してください。インストーラーや追加の .NET インストールは不要です。
+5. デスクトップに使用量メーター、タスクバー右側の通知領域にアイコンが表示されます。見当たらない場合は、隠れているアイコンの一覧も確認してください。トレイアイコンを右クリックして **Settings...** を開き、**Providers** で表示したいサービスを選びます。
+6. Claude / Codex の公式残量を使う場合は、先に **Windows 内の**各 CLI でサインインし、**Sync sources** の **Official Claude usage sync (opt-in)** / **Official Codex usage sync (opt-in)** を有効にして **Save** を押します。Mac 側のサインイン状態は Windows の仮想環境へ自動では引き継がれません。
+7. Gemini は[以下の手順](#geminiantigravityを有効にする)で設定してください。トレイメニューの **Refresh now** でメーターを更新できます。自動起動は、Settings > Behavior の **Start with Windows** で切り替え、**Save** を押してください。
 
 ### Gemini（Antigravity）を有効にする
 
@@ -184,7 +181,7 @@ swift run UsageKunCoreCheck --claude-estimate
 
 ## 既に使っている場合のアップデート
 
-設定や較正データはアプリとは別に保存されているため、更新しても通常は設定は消えません。macOS の `~/Library/Application Support/usage_kun`、Windows の `%APPDATA%\usage_kun` は削除しないでください。Claude Code / Codex CLI のサインイン情報やログも、そのまま利用できます。
+アップデートは手動です。アプリが自動で最新版をダウンロード・インストールする機能はありません。設定や較正データはアプリとは別に保存されているため、設定の書き出しや移行操作は不要です。macOS の `~/.codex`、`~/.claude`、`~/.claude.json`、`~/Library/Application Support/usage_kun`、Windows の `%USERPROFILE%\.codex`、`%USERPROFILE%\.claude`、`%USERPROFILE%\.claude.json`、`%APPDATA%\usage_kun` は削除しないでください。これらにある CLI のサインイン情報・ログ・プラン情報とアプリ設定を、更新後もそのまま利用します。
 
 以下の Git / ソース ZIP / macOS リリース ZIP の手順は macOS 用です。
 
@@ -215,19 +212,21 @@ open UsageKun.app
 1. [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest) から最新の `UsageKun-macOS.zip` を download します。
 2. メニューバーから古い usage-kun を終了します。
 3. `UsageKun-macOS.zip` を展開します。
-4. 古い `UsageKun.app` を新しい `UsageKun.app` に置き換えます。
-5. 新しい `UsageKun.app` を開きます。
+4. `/Applications/UsageKun.app` など、以前と同じ場所の古い `UsageKun.app` を新しいものに置き換えます。
+5. 新しい `UsageKun.app` を開き、メーターを更新します。プロバイダや同期の設定は引き継がれます。
+
+保存先も変更する場合は、先に古いアプリの **Settings > Meter > Launch at login** をオフにします。終了後に新しいアプリを移動し、その場所から開いて、必要に応じて **Launch at login** を再びオンにしてください。macOS が許可を求める場合は、**システム設定 > 一般 > ログイン項目** で usage-kun を許可します。
 
 新しい version の初回起動時に「マルウェアが含まれていないことを確認できませんでした」の警告が再度出ることがあります。その場合は [初回起動時の手順](#初回起動時マルウェアが含まれていないことを確認できませんでしたと出る場合) と同じ方法で許可してください。Claude 公式 sync を有効にしている場合、更新後に macOS が Claude Code の Keychain access を再度確認することがあります。
 
 ### Windows 版の場合
 
-1. [最新リリース](https://github.com/Kohei-SAWADA/usage_kun/releases/latest)から、お使いの Windows に合う ZIP をダウンロードします。
+1. Intel / AMD（x64）の Windows PC で、[最新リリース](https://github.com/Kohei-SAWADA/usage_kun/releases/latest)から `UsageKun-Windows-x64.zip` をダウンロードします。Windows ARM には v0.4.2 以降の対応アップデートはありません。Windows ARM 上で x64 ZIP に置き換える方法もサポート対象外です。
 2. 起動中の usage-kun のトレイアイコンを右クリックし、**Quit usage_kun** で終了します。
-3. ZIP を展開し、以前の保存先のアプリ一式を新しい内容に置き換えます。同じ保存先を使うと、ショートカットや自動起動の参照先もそのまま利用できます。
-4. 新しい `UsageKun.exe` を起動します。
+3. **すべて展開** で ZIP を展開し、以前の保存先のアプリ一式を新しい内容に置き換えます。同じ保存先を使うと、ショートカットや自動起動の参照先もそのまま利用できます。インストーラーやアンインストール操作は不要です。
+4. 新しい `UsageKun.exe` を起動し、トレイメニューの **Refresh now** で更新します。設定と較正データは `%APPDATA%\usage_kun` に残ります。
 
-保存先を変更した場合は、Settings の **Start with Windows** を再度保存して、自動起動の参照先も更新してください。
+保存先を変更した場合は、ショートカットの参照先も更新してください。新しい `UsageKun.exe` を開き、**Settings > Behavior** で必要に応じて **Start with Windows** にチェックを入れて **Save** を押すと、自動起動の参照先も更新できます。
 
 ## データソース
 
@@ -324,14 +323,23 @@ AI 使用量 monitor や menu bar utility はすでに複数あります。usage
 - Claude local-log quota 推定は best-effort です。`requestId` と `message.id` による重複排除を行い、opt-in の Claude 公式使用量 sync が成功した後は cap を自己較正できます。
 - 公式 sync には、同じ OS・ユーザーでの Claude Code / Codex CLI のサインイン状態が必要です。Mac と Windows の間で自動共有はしません。
 - Gemini は起動中・サインイン済みの Antigravity IDE が必要です。IDE の内部 API が変わると取得できなくなる場合があります。
-- 通知は macOS の packaged app (`UsageKun.app`) 向けです。Windows の通知と Codex SQLite ログ読み取りは未対応です。Windows の検証範囲は [Windows ガイド](docs/windows.md#validation-and-limits)を参照してください。
+- 通知は macOS の packaged app (`UsageKun.app`) 向けです。Windows の通知は未対応です。
+- Windows は `logs_2.sqlite` とセッション JSONL ログから Codex の残量を読み取ります。`state_5.sqlite` の補助的なトークン数・スレッド数の統計は未対応です。Windows の検証範囲は [Windows ガイド](docs/windows.md#validation-and-limits)を参照してください。
 - macOS 版は ad-hoc 署名のみで notarization はしていないため、download した copy の初回起動時に一度だけ Gatekeeper の許可が必要です。Windows 版の実行ファイルは未署名です。
 
 ## リリース履歴
 
+### v0.4.2
+
+- Windows の対応・配布対象を Intel / AMD（x64）の PC のみにしました。Apple Silicon の Mac 上で動く Windows を含め、Windows ARM の対応を終了しました。
+- Windows の Codex 使用量が古いままになる問題を修正しました。ローカルの live quota データベースも読み取り、セッションログと比較して通常の Codex 枠の最新の有効な制限情報を使います。モデル専用の制限枠が通常枠を上書きする問題も修正しました。
+- macOS の動作と Apple Silicon 対応は維持し、Windows・macOS の既存インストールからの更新手順を明確にしました。
+
+詳細: [docs/release-notes-v0.4.2.md](docs/release-notes-v0.4.2.md)
+
 ### v0.4.1
 
-- Windows x64 / ARM64 版を公開しました。Claude / Codex の公式使用量同期と、Antigravity 内の Gemini の残量表示に対応しています。
+- Windows x64 / ARM64 版を公開しました。Claude / Codex の公式使用量同期と、Antigravity 内の Gemini の残量表示に対応しています。Windows ARM の対応は v0.4.2 で終了しました。
 - Windows のビルド・コアチェック・WPF 統合チェック・パッケージ作成を CI に追加しました。
 - macOS の動作は v0.4.0 と同じで、リリース番号を揃えました。
 

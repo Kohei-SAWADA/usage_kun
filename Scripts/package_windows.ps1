@@ -5,13 +5,12 @@ Builds the Windows release zip, the counterpart of package_release_zip.sh.
 
 Usage (from the repository root, on Windows with the .NET 8 SDK):
   pwsh ./Scripts/package_windows.ps1                      # self-contained win-x64
-  pwsh ./Scripts/package_windows.ps1 -Runtime win-arm64   # self-contained win-arm64
   pwsh ./Scripts/package_windows.ps1 -FrameworkDependent  # small zip, needs .NET 8 runtime
 
-Produces UsageKun-Windows-<arch>.zip in the repository root.
+Produces UsageKun-Windows-x64.zip for Windows on Intel / AMD in the repository root.
 #>
 param(
-    [ValidateSet("win-x64", "win-arm64")]
+    [ValidateSet("win-x64")]
     [string]$Runtime = "win-x64",
     [switch]$FrameworkDependent
 )
