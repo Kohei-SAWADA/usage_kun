@@ -1,5 +1,34 @@
 # usage-kun
 
+<p align="right">
+  <strong>English</strong> |
+  <a href="README.ja.md">日本語</a>
+</p>
+
+**Monitor Claude Code, Codex & Gemini Usage at a Glance.**
+
+Keep remaining quota and reset times in view from your macOS menu bar or Windows x64 tray. Optional Gemini support reads Antigravity IDE quota, not Gemini app usage or API billing.
+
+**[Download for macOS (Apple Silicon)](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-macOS.zip)** · **[Download for Windows x64](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-Windows-x64.zip)** · [Setup guide](#quick-start) · [Demo](#demo)
+
+macOS 14+; Windows 10/11 on Intel/AMD x64. Windows ARM is unsupported. The macOS app is ad-hoc signed and not notarized; the Windows app is unsigned.
+
+## Demo
+
+[Watch the real macOS demo (MP4)](assets/promo/usage-kun-demo.mp4)
+
+![Actual usage-kun interaction on macOS](assets/promo/usage-kun-demo.gif)
+
+The recording shows actual desktop-meter readings and provider display controls on this Mac. Displayed values can include a local-log estimate, including Claude's empty-log fallback. Unavailable provider data is not demonstrated as live quota; Gemini quota fetching and Windows interactions are not shown.
+
+## At a glance
+
+- Compact menu bar / system-tray readings and desktop meters.
+- Claude Code and Codex usage, with duration-aware quota labels and reset times.
+- Provider display switches and optional Gemini quota from a running, signed-in Antigravity IDE.
+
+[Full features](#features) · [Data sources](#data-sources) · [Privacy](#privacy-model)
+
 <p align="center">
   <img src="assets/usage-kun-thumbnail.png" alt="usage-kun thumbnail showing an AI usage meter for Codex, Claude and Gemini">
 </p>
@@ -8,10 +37,7 @@
   <img src="assets/usage-kun-icon.png" alt="Usage Kun app icon" width="160">
 </p>
 
-<p align="right">
-  <strong>English</strong> |
-  <a href="README.ja.md">日本語</a>
-</p>
+
 
 usage-kun is a small, privacy-first macOS menu bar and Windows system-tray app for keeping Codex, Claude, and optional Gemini (Antigravity) usage visible while you work.
 

@@ -1,5 +1,34 @@
 # usage-kun
 
+<p align="right">
+  <a href="README.md">English</a> |
+  <strong>日本語</strong>
+</p>
+
+**Claude Code・Codex・Geminiの使用状況をひと目で確認。**
+
+macOSのメニューバーやWindows x64のトレイで、残量とリセット時刻を確認できます。任意のGemini対応はAntigravity IDEの利用枠を読み取るもので、Geminiアプリの使用量やAPI課金ではありません。
+
+**[macOS版をダウンロード（Apple Silicon）](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-macOS.zip)** · **[Windows x64版をダウンロード](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-Windows-x64.zip)** · [導入手順](#すぐ試す) · [デモ](#デモ)
+
+macOS 14以降、Windows 10/11のIntel/AMD x64に対応。Windows ARMは非対応です。macOS版はアドホック署名・未公証、Windows版は未署名です。
+
+## デモ
+
+[Macでの実操作デモを見る（MP4）](assets/promo/usage-kun-demo.mp4)
+
+![macOS上のusage-kunの実操作](assets/promo/usage-kun-demo.gif)
+
+このMacのデスクトップメーターの実表示とサービス表示切替を収録しています。表示値にはClaudeの空ログ時の代替表示など、ローカルログの推定が含まれる場合があります。取得できないサービスをライブ残量として演出していません。Geminiの残量取得とWindowsの操作は映像に含みません。
+
+## 主な機能
+
+- コンパクトなメニューバー／システムトレイ表示とデスクトップメーター。
+- Claude Code・Codexの利用状況、実期間に合う利用枠ラベルとリセット時刻。
+- サービス表示切替と、起動・サインイン済みAntigravity IDEからの任意のGemini利用枠取得。
+
+[詳しい機能](#機能) · [データソース](#データソース) · [プライバシー](#プライバシー方針)
+
 <p align="center">
   <img src="assets/usage-kun-thumbnail.png" alt="Codex、Claude、Gemini の使用量メーターを示す usage-kun サムネイル">
 </p>
@@ -8,10 +37,7 @@
   <img src="assets/usage-kun-icon.png" alt="Usage Kun アプリアイコン" width="160">
 </p>
 
-<p align="right">
-  <a href="README.md">English</a> |
-  <strong>日本語</strong>
-</p>
+
 
 usage-kun は、Codex、Claude、Gemini（Antigravity）の使用量を作業中にすぐ確認できる、プライバシーを重視した小さな常駐アプリです。macOS ではメニューバー、Windows ではシステムトレイとデスクトップのメーターから確認できます。Gemini の表示は設定から有効にできます。
 
