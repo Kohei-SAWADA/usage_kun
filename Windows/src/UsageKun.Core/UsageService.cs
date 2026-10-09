@@ -44,8 +44,8 @@ public sealed class MockUsageService : IUsageService
     }
 }
 
-/// Selects only enabled providers and opt-in sources. Failed official reads keep
-/// a usable local estimate and append a reason, or show an explicit setup/error.
+/// Selects only enabled providers and opt-in sources. Failed authenticated reads
+/// leave current quota unknown; historical local activity is not account proof.
 public sealed class CompositeUsageService : IUsageService
 {
     private readonly AppConfigStore _configStore;
@@ -89,13 +89,18 @@ public sealed class CompositeUsageService : IUsageService
                 var result = await _officialService.SnapshotAsync(provider, now);
                 if (result.Snapshot is { } official && official.Provider == provider)
                 {
-                    if (provider == UsageProvider.Claude && config.LocalLogEnabled && official.Percent is { } percent)
-                        _localLogService.RecordClaudeOfficialSample(100 - percent, now);
                     return official;
                 }
                 var reason = result.FailureReason ?? "The usage provider returned an unexpected result.";
                 if (estimate != null)
-                    return estimate with { Message = (estimate.Message is { Length: > 0 } text ? text + " " : "") + "Official sync unavailable: " + reason };
+                    return estimate with
+                    {
+                        Status = UsageStatus.Unknown, Percent = null, Used = null, ResetAt = null,
+                        Weekly = estimate.Weekly == null ? null : new UsageWindow(null, null, estimate.Weekly.Detail),
+                        SecondaryValue = "--",
+                        Message = (estimate.Message is { Length: > 0 } text ? text + " " : "") +
+                            "Official sync unavailable: " + reason + " Current quota is unknown."
+                    };
                 return new UsageSnapshot
                 {
                     Provider = provider, Status = UsageStatus.Error, UpdatedAt = now,
@@ -151,9 +156,11 @@ public sealed class UsageStore
                 continue;
             }
 
-            double? effectivePercent = provider == UsageProvider.Antigravity && snapshot.Weekly?.PercentLeft == null
+            double? effectivePercent = snapshot.Status is UsageStatus.Unknown or UsageStatus.Error ||
+                (provider == UsageProvider.Antigravity && snapshot.Weekly == null) ||
+                (snapshot.Weekly != null && (snapshot.Weekly.PercentLeft is not { } weekly || !Format.IsValidPercent(weekly)))
                 ? null
-                : snapshot.Percent is { } primary
+                : snapshot.Percent is { } primary && Format.IsValidPercent(primary)
                 ? Math.Min(primary, snapshot.Weekly?.PercentLeft ?? 100)
                 : null;
 
@@ -223,7 +230,9 @@ public sealed class UsageStore
                     var result = await Task.Run(() => _service.SnapshotsAsync(DateTimeOffset.Now));
                     if (revision == _configRevision)
                     {
-                        Snapshots = result.Where(snapshot => Config.IsProviderEnabled(snapshot.Provider)).ToArray();
+                        var now = DateTimeOffset.Now;
+                        Snapshots = result.Where(snapshot => Config.IsProviderEnabled(snapshot.Provider))
+                            .Select(snapshot => ValidateForDisplay(snapshot, now)).ToArray();
                         if (LastErrorMessage == RefreshFailureMessage) LastErrorMessage = null;
                     }
                 }
@@ -231,7 +240,13 @@ public sealed class UsageStore
                 {
                     // Provider failures must never crash the app or expose diagnostics.
                     if (revision == _configRevision)
+                    {
                         LastErrorMessage = RefreshFailureMessage;
+                        // A retained old value must not look like a successful current reading.
+                        Snapshots = new[] { UsageProvider.Codex, UsageProvider.Claude, UsageProvider.Antigravity }
+                            .Where(Config.IsProviderEnabled)
+                            .Select(provider => UnknownAfterFailure(provider, DateTimeOffset.Now)).ToArray();
+                    }
                 }
             } while (_refreshPending);
         }
@@ -240,6 +255,39 @@ public sealed class UsageStore
             IsRefreshing = false;
             Changed?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    public static UsageSnapshot ValidateForDisplay(UsageSnapshot snapshot, DateTimeOffset now)
+    {
+        var stale = snapshot.UpdatedAt <= now.AddMinutes(-30) || snapshot.UpdatedAt > now.AddMinutes(5);
+        var primary = snapshot.Percent is { } percent && Format.IsValidPercent(percent) && !stale &&
+            (snapshot.ResetAt == null || snapshot.ResetAt > now) ? snapshot.Percent : null;
+        var weekly = snapshot.Weekly;
+        if (weekly != null && (stale || weekly.PercentLeft is not { } left || !Format.IsValidPercent(left) ||
+            weekly.ResetAt <= now))
+            weekly = weekly with { PercentLeft = null, ResetAt = null };
+        if (primary == snapshot.Percent && weekly == snapshot.Weekly && !stale) return snapshot;
+        return snapshot with
+        {
+            Percent = primary, Used = snapshot.Unit == "%" ? primary : snapshot.Used,
+            ResetAt = primary == null ? null : snapshot.ResetAt, Weekly = weekly,
+            Status = UsageStatus.Unknown, SecondaryValue = primary == null ? "unknown" : snapshot.SecondaryValue,
+            Message = (snapshot.Message is { Length: > 0 } message ? message + " " : "") +
+                "Some quota is stale, expired, or invalid. Refresh for a current reading; missing values remain unknown."
+        };
+    }
+
+    private UsageSnapshot UnknownAfterFailure(UsageProvider provider, DateTimeOffset now)
+    {
+        var previous = Snapshots.FirstOrDefault(snapshot => snapshot.Provider == provider);
+        return new UsageSnapshot
+        {
+            Provider = provider, Status = UsageStatus.Error, UpdatedAt = previous?.UpdatedAt ?? now,
+            Source = previous?.Source ?? "unavailable", Unit = "%", MetricTitle = "Usage left",
+            PrimaryWindowMinutes = previous?.PrimaryWindowMinutes,
+            Weekly = previous?.Weekly != null || provider == UsageProvider.Antigravity ? new UsageWindow(null, null) : null,
+            Message = RefreshFailureMessage
+        };
     }
 
     /// Windows only: persists the floating-widget position after a drag.

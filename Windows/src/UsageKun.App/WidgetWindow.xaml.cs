@@ -315,7 +315,7 @@ public partial class WidgetWindow : Window
         Grid.SetColumn(titleText, 0);
         grid.Children.Add(titleText);
 
-        if (percent is { } percentValue)
+        if (percent is { } percentValue && double.IsFinite(percentValue) && percentValue is >= 0 and <= 100)
         {
             var bar = Bar(percentValue, accentColor, barHeight, muted: !isPrimary);
             Grid.SetColumn(bar, 1);
@@ -323,7 +323,7 @@ public partial class WidgetWindow : Window
 
             var percentText = new TextBlock
             {
-                Text = $"{(int)Math.Round(percentValue, MidpointRounding.AwayFromZero)}%",
+                Text = Format.Percent(percentValue),
                 FontFamily = new FontFamily("Consolas"),
                 FontSize = isPrimary ? 11 : 9,
                 FontWeight = FontWeights.Black,
@@ -351,11 +351,11 @@ public partial class WidgetWindow : Window
             Grid.SetColumn(resetText, 3);
             grid.Children.Add(resetText);
         }
-        else if (detail != null)
+        else
         {
             var detailText = new TextBlock
             {
-                Text = detail.ToUpperInvariant(),
+                Text = (detail ?? "Unknown").ToUpperInvariant(),
                 FontFamily = new FontFamily("Consolas"),
                 FontSize = 9,
                 FontWeight = FontWeights.Bold,

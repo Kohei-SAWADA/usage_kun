@@ -9,7 +9,7 @@
 
 Keep remaining quota and reset times in view from your macOS menu bar or Windows x64 tray. Optional Gemini support reads Antigravity IDE quota, not Gemini app usage or API billing.
 
-**[Download for macOS (Apple Silicon)](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-macOS.zip)** · **[Download for Windows x64](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-Windows-x64.zip)** · [Setup guide](#quick-start) · [GIF demo](#demo)
+**[Download for macOS (Apple Silicon)](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-macOS.zip)** · **[Download for Windows x64](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.3/UsageKun-Windows-x64.zip)** · [Setup guide](#quick-start) · [GIF demo](#demo)
 
 macOS 14+; Windows 10/11 on Intel/AMD x64. Windows ARM is unsupported. The macOS app is ad-hoc signed and not notarized; the Windows app is unsigned.
 
@@ -47,14 +47,16 @@ This project is not affiliated with, endorsed by, or sponsored by OpenAI, Anthro
 
 ## Downloads
 
-The latest version is [v0.4.2](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.2). Windows support is limited to Intel / AMD PCs (x64). Windows ARM, including Windows on Apple Silicon Macs, is no longer supported. macOS support, including Apple Silicon, is unchanged. Gemini (Antigravity) is available on macOS since v0.4.0 and Windows since v0.4.1.
+The latest Windows version is [v0.4.3](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.3). macOS remains [v0.4.2](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.2), with its existing download unchanged. Windows support is limited to Intel / AMD PCs (x64). Windows ARM, including Windows on Apple Silicon Macs, is no longer supported. macOS support, including Apple Silicon, is unchanged. Gemini (Antigravity) is available on macOS since v0.4.0 and Windows since v0.4.1.
 
-Choose your platform from [the latest release](https://github.com/Kohei-SAWADA/usage_kun/releases/latest):
+Choose the current download for your platform:
 
 | Platform | ZIP |
 | --- | --- |
-| macOS (Apple Silicon) | [UsageKun-macOS.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-macOS.zip) |
+| macOS (Apple Silicon) | [UsageKun-macOS.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-macOS.zip) |
 | Windows (Intel / AMD, x64) | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) |
+
+Windows v0.4.3 keeps expired, stale, invalid, and unavailable quota unknown instead of assuming 100%. Claude local token totals do not establish subscription quota; enable opt-in authenticated usage sync for a reported quota. Codex quota is separate from ordinary ChatGPT chat limits and API billing. [Windows accuracy changes](docs/release-notes-v0.4.3.md).
 
 For Windows, follow [Install On Windows](#install-on-windows) below. The ZIP includes the .NET runtime; no SDK or separate runtime installation is needed. Download the app ZIP from the table above or **Assets** on the release page. **Code > Download ZIP** and **Source code** contain development source files.
 
@@ -98,7 +100,7 @@ usage-kun is designed to stay visible without becoming a dashboard. Click the me
 - Duration-aware Codex quota labels, including weekly-only plans, plus Claude Code quota bars
 - Optional Gemini 5-hour and weekly quota, including reset times, from the running Antigravity IDE
 - Per-provider checkboxes for Claude, Codex, and Gemini (Antigravity)
-- Local-log usage estimates when official sync is unavailable
+- Local-log usage estimates on macOS; fresh recorded Codex quota on Windows, with unknown values when quota cannot be established
 - Optional official usage sync for Claude Code and Codex CLI sign-ins
 - Low-usage and reset notifications for the packaged macOS app
 - Read-only token reuse with no token persistence, refresh, or credential logging
@@ -118,7 +120,7 @@ usage-kun is designed to stay visible without becoming a dashboard. Click the me
 
 On macOS:
 
-1. Download the latest `UsageKun-macOS.zip` from [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest).
+1. Download `UsageKun-macOS.zip` from the [macOS v0.4.2 release](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.2).
 2. Unzip it and move `UsageKun.app` to `/Applications` (or anywhere you like).
 3. Open `UsageKun.app`.
 4. To use official quotas, sign in to Claude Code or Codex on this Mac, then enable **Claude official usage** or **Codex official usage** under **Settings > Official usage**. For Gemini, see [Enable Gemini (Antigravity)](#enable-gemini-antigravity).
@@ -235,7 +237,7 @@ open UsageKun.app
 
 On macOS:
 
-1. Download the latest `UsageKun-macOS.zip` from [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest).
+1. Download `UsageKun-macOS.zip` from the [macOS v0.4.2 release](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.2).
 2. Quit the old usage-kun app from the menu bar.
 3. Unzip `UsageKun-macOS.zip`.
 4. Replace your old `UsageKun.app` with the new one at the same location, such as `/Applications/UsageKun.app`.
@@ -258,9 +260,9 @@ If you move the app to a different folder, update your shortcuts. Open the new `
 
 usage-kun uses a staged data model:
 
-1. Local logs: reads known Claude Code and Codex local usage logs for estimates.
+1. Local logs: macOS reads Claude Code and Codex usage estimates. Windows reads fresh recorded Codex quota and Claude token totals; token totals alone leave Claude quota unknown.
 2. Official usage sync: opt-in only; reuses CLI sign-ins on the same OS in read-only mode to fetch official quota numbers and limit durations. Available on macOS and Windows.
-3. Claude calibration: when official Claude sync succeeds, usage-kun can calibrate the local Claude 5-hour cap estimate for later fallback use.
+3. Claude calibration (macOS only): successful Claude usage sync can calibrate the local 5-hour cap estimate for later fallback use. Windows does not derive quota from token caps.
 4. Gemini (Antigravity): opt-in only; reads the running IDE's local quota service for **Gemini Models** 5-hour and weekly remaining usage and reset times. It does not read Gemini app usage or Gemini API billing, or substitute CLI logs or another provider's quota when unavailable.
 
 See [docs/providers.md](docs/providers.md) for details.
@@ -348,7 +350,7 @@ The emphasis is on:
 ## Limitations
 
 - Official usage endpoints can change without notice.
-- Claude local-log quota estimates are best-effort. They deduplicate repeated JSONL rows by `requestId` and `message.id`, and can self-calibrate after opt-in official Claude usage sync succeeds.
+- macOS Claude local-log quota estimates are best-effort. Windows leaves Claude quota unknown without usable authenticated quota. They deduplicate repeated JSONL rows by `requestId` and `message.id`, and can self-calibrate after opt-in official Claude usage sync succeeds.
 - Official sync requires existing Claude Code / Codex CLI sign-in state on the same OS where usage-kun runs.
 - Gemini requires the running, signed-in Antigravity IDE. Its local API may change, and unavailable quota stays unknown.
 - Notifications are intended for the packaged macOS `UsageKun.app` build; Windows toast notifications are not implemented.
@@ -356,6 +358,14 @@ The emphasis is on:
 - Windows reads Codex live quota from `logs_2.sqlite` and session JSONL logs; auxiliary token/thread statistics from `state_5.sqlite` are not implemented. See the [Windows guide](docs/windows.md#validation-and-limits) for Windows validation status.
 
 ## Release History
+
+### v0.4.3 — Windows quota accuracy
+
+- Keep expired, stale, invalid, unavailable, and missing quota unknown; retain decimal percentages instead of rounding 99.5% to 100%.
+- Stop converting Claude conversation token caps into subscription remaining quota on Windows.
+- Keep Codex windows and provider identity distinct. macOS remains on its existing v0.4.2 asset.
+
+Details: [docs/release-notes-v0.4.3.md](docs/release-notes-v0.4.3.md)
 
 ### v0.4.2
 

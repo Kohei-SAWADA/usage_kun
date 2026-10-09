@@ -2,8 +2,7 @@ using System.Text.Json;
 
 namespace UsageKun.Core;
 
-/// 5-hour cap estimate learned from official Claude sync samples.
-/// Opt-in official sync records samples so local estimates can reuse the learned cap.
+/// Legacy cap data retained for compatibility. Windows quota no longer reads or updates it.
 public sealed class ClaudeCalibration
 {
     public double CapEstimate { get; set; }

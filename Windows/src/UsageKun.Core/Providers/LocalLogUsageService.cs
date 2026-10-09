@@ -14,19 +14,18 @@ namespace UsageKun.Core;
 public sealed class LocalLogUsageService : IUsageService
 {
     private readonly string _home;
-    private readonly ClaudeCalibrationStore _calibrationStore;
-    private double? _lastClaudeBlockWeightedUsed;
-    private DateTimeOffset? _lastClaudeBlockComputedAt;
-    private string? _lastClaudePlanKey;
+    internal static readonly TimeSpan LocalQuotaMaximumAge = TimeSpan.FromMinutes(30);
+    internal static readonly TimeSpan LocalClockSkewTolerance = TimeSpan.FromMinutes(5);
 
-    /// "auto" resolves the plan from ~/.claude.json; "pro", "max_5x", and
-    /// "max_20x" force that plan's cap for the local estimate.
+    /// Retained for existing settings compatibility. Plan estimates no longer
+    /// determine the subscription quota displayed by the Windows app.
     public string ClaudePlanOverride { get; set; } = "auto";
 
     public LocalLogUsageService(string? home = null, ClaudeCalibrationStore? calibrationStore = null)
     {
         _home = home ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        _calibrationStore = calibrationStore ?? new ClaudeCalibrationStore();
+        // The optional calibration store is retained for constructor compatibility.
+        // Local token logs are no longer converted into subscription quota percentages.
     }
 
     public Task<IReadOnlyList<UsageSnapshot>> SnapshotsAsync(DateTimeOffset now) =>
@@ -38,55 +37,6 @@ public sealed class LocalLogUsageService : IUsageService
         if (codexEnabled) snapshots.Add(CodexSnapshot(now));
         if (claudeEnabled) snapshots.Add(ClaudeSnapshot(now));
         return Task.FromResult<IReadOnlyList<UsageSnapshot>>(snapshots);
-    }
-
-    /// Feeds one official used% sample into the Claude cap calibration.
-    /// Called after opt-in official Claude sync, using the matching local block.
-    public void RecordClaudeOfficialSample(double usedPercent, DateTimeOffset now)
-    {
-        if (_lastClaudeBlockWeightedUsed is not { } weighted ||
-            _lastClaudeBlockComputedAt is not { } computedAt ||
-            _lastClaudePlanKey is not { } planKey ||
-            weighted <= 200_000 ||
-            usedPercent < 10 ||
-            (now - computedAt).TotalSeconds >= 600)
-        {
-            return;
-        }
-
-        var sample = weighted / (usedPercent / 100);
-        if (sample <= 500_000 || sample >= 500_000_000)
-        {
-            return;
-        }
-
-        ClaudeCalibration next;
-        if (_calibrationStore.Load() is { } existing && existing.PlanKey == planKey)
-        {
-            existing.CapEstimate = existing.CapEstimate * 0.7 + sample * 0.3;
-            existing.SampleCount += 1;
-            existing.UpdatedAt = now;
-            next = existing;
-        }
-        else
-        {
-            next = new ClaudeCalibration
-            {
-                CapEstimate = sample,
-                SampleCount = 1,
-                PlanKey = planKey,
-                UpdatedAt = now
-            };
-        }
-
-        try
-        {
-            _calibrationStore.Save(next);
-        }
-        catch
-        {
-            // Calibration is best-effort; the plan default keeps working.
-        }
     }
 
     public static double ClaudeCostEstimateUsd(
@@ -110,45 +60,46 @@ public sealed class LocalLogUsageService : IUsageService
         {
             var primary = rateLimit.Primary;
             var secondary = rateLimit.Secondary;
-            // If the recorded 5h window already expired, Codex has reset the limit
-            // but no new rate_limits event has arrived yet. Show a fresh window
-            // instead of continuing to display the stale used % and a "0m" reset.
+            var age = now - rateLimit.UpdatedAt;
+            var stale = age >= LocalQuotaMaximumAge || age < -LocalClockSkewTolerance;
             var primaryExpired = primary.ResetsAt is { } primaryReset && primaryReset <= now;
-            var leftPercent = primaryExpired ? 100 : primary.LeftPercent;
-            var resetAt = primaryExpired ? null : primary.ResetsAt;
-            var resetText = primaryExpired
-                ? "fresh"
-                : resetAt is { } value ? Format.WidgetReset(value, now) : "--";
+            double? leftPercent = stale || primaryExpired ? null : primary.LeftPercent;
+            var resetAt = leftPercent != null ? primary.ResetsAt : null;
+            var resetText = primaryExpired ? "expired" :
+                resetAt is { } value ? Format.WidgetReset(value, now) : "--";
 
             UsageWindow? weekly = null;
+            var secondaryExpired = false;
             if (secondary != null)
             {
-                var secondaryExpired = secondary.ResetsAt is { } secondaryReset && secondaryReset <= now;
-                var secondaryLeft = secondaryExpired
-                    ? 100
-                    : (int)Math.Round(secondary.LeftPercent, MidpointRounding.AwayFromZero);
-                weekly = new UsageWindow(secondaryLeft, secondaryExpired ? null : secondary.ResetsAt);
+                secondaryExpired = secondary.ResetsAt is { } secondaryReset && secondaryReset <= now;
+                double? secondaryLeft = stale || secondaryExpired ? null : secondary.LeftPercent;
+                weekly = new UsageWindow(secondaryLeft,
+                    secondaryLeft != null ? secondary.ResetsAt : null,
+                    secondaryExpired ? "Recorded weekly window expired; refresh Codex usage." : null);
+            }
+            else if (primary.WindowMinutes == 300 || rateLimit.HasUnknownSecondary)
+            {
+                // A 5h reading alone does not establish the constraining weekly
+                // quota. Keep its absence visible instead of assuming 100%.
+                weekly = new UsageWindow(null, null, "Weekly Codex quota is unknown; refresh Codex usage.");
             }
 
-            var rawUsedPercent = primaryExpired
-                ? 0
-                : (int)Math.Round(primary.UsedPercent, MidpointRounding.AwayFromZero);
-            var message = primaryExpired
-                ? "Usage window reset. Waiting for the next Codex call to refresh the live limit."
-                : $"Showing remaining quota from General usage limits. Raw used value is {rawUsedPercent}%.";
-            // The logged value only updates while Codex is running, so flag stale data:
-            // the real used % can only have decayed since it was recorded.
-            var ageMinutes = (int)((now - rateLimit.UpdatedAt).TotalSeconds / 60);
-            if (!primaryExpired && ageMinutes >= 30)
-            {
-                var ageText = ageMinutes >= 60 ? $"{ageMinutes / 60}h {ageMinutes % 60}m" : $"{ageMinutes}m";
-                message += $" Recorded {ageText} ago; actual usage may be lower.";
-            }
+            var message = stale
+                ? "Recorded Codex quota is stale or has an invalid timestamp. Remaining quota is unknown; refresh Codex usage."
+                : primaryExpired
+                ? "The recorded Codex usage window expired. Remaining quota is unknown until a new limit is recorded."
+                : $"Last recorded remaining quota from Codex General usage limits. Recorded used value is {primary.UsedPercent.ToString("0.#", CultureInfo.InvariantCulture)}%.";
+            if (!stale && !primaryExpired)
+                message += " Usage in other sessions or devices may have changed since this reading.";
+            if (secondaryExpired)
+                message += " The recorded weekly quota also needs a new reading.";
 
             return new UsageSnapshot
             {
                 Provider = UsageProvider.Codex,
-                Status = UsageStatusRules.Status(leftPercent, weekly?.PercentLeft),
+                Status = leftPercent is { } left && (weekly == null || weekly.PercentLeft != null)
+                    ? UsageStatusRules.Status(left, weekly?.PercentLeft) : UsageStatus.Unknown,
                 Used = leftPercent,
                 Limit = null,
                 Percent = leftPercent,
@@ -157,7 +108,7 @@ public sealed class LocalLogUsageService : IUsageService
                 Message = message,
                 Source = rateLimit.Source,
                 Unit = "%",
-                MetricTitle = "Usage left",
+                MetricTitle = primary.WindowMinutes == 10080 ? "1 week left" : "Usage left",
                 SecondaryTitle = "Reset",
                 SecondaryValue = resetText,
                 Weekly = weekly,
@@ -287,23 +238,14 @@ public sealed class LocalLogUsageService : IUsageService
     private static CodexRateLimitSnapshot CodexSnapshotFromReading(OfficialUsageReading reading,
         DateTimeOffset updatedAt, string source) => new(updatedAt,
         new CodexRateLimit(reading.Primary.UsedPercent, reading.Primary.WindowMinutes, reading.Primary.ResetsAt),
-        reading.Secondary is { } secondary
+        reading.Secondary is { WindowMinutes: 10080 } secondary
             ? new CodexRateLimit(secondary.UsedPercent, secondary.WindowMinutes, secondary.ResetsAt) : null,
-        source);
+        source,
+        reading.HasUnknownSecondary || (reading.Secondary != null && reading.Secondary.WindowMinutes != 10080));
 
     private static void ReadCodexRateLimits(string file, Action<CodexRateLimitSnapshot> onSnapshot)
     {
-        IEnumerable<string> lines;
-        try
-        {
-            lines = File.ReadLines(file);
-        }
-        catch
-        {
-            return;
-        }
-
-        foreach (var line in lines)
+        foreach (var line in ReadJsonlLines(file))
         {
             try
             {
@@ -321,7 +263,8 @@ public sealed class LocalLogUsageService : IUsageService
                 }
 
                 if (!IsGeneralCodexLimit(GetString(rateLimits, "limit_id"))) continue;
-                var updatedAt = ParseDate(GetString(root, "timestamp")) ?? FileModificationDate(file);
+                // File modification time is not the time this usage was observed.
+                if (ParseDate(GetString(root, "timestamp")) is not { } updatedAt) continue;
                 if (CLIOAuthUsageService.ParseCodexWindows(rateLimits, updatedAt) is not { } reading) continue;
                 onSnapshot(CodexSnapshotFromReading(reading, updatedAt, "Codex session rate limits"));
             }
@@ -339,7 +282,6 @@ public sealed class LocalLogUsageService : IUsageService
         var projects = Path.Combine(_home, ".claude", "projects");
         if (!Directory.Exists(projects))
         {
-            ClearLastClaudeBlock();
             return new UsageSnapshot
             {
                 Provider = UsageProvider.Claude,
@@ -363,12 +305,11 @@ public sealed class LocalLogUsageService : IUsageService
 
         foreach (var file in JsonlFiles(projects))
         {
-            ReadClaudeJsonl(file, dayStart, weekStart, stats);
+            ReadClaudeJsonl(file, now, dayStart, weekStart, stats);
         }
 
         if (stats.UsageEntries == 0)
         {
-            ClearLastClaudeBlock();
             return new UsageSnapshot
             {
                 Provider = UsageProvider.Claude,
@@ -388,49 +329,35 @@ public sealed class LocalLogUsageService : IUsageService
 
         var blocks = BuildClaudeBlocks(stats.Events);
         var activeBlock = blocks.FirstOrDefault(block => now >= block.StartTime && now < block.EndTime);
-        var (planCap, planLabel, planKey) = ClaudePlanCap();
         var usedWeighted = activeBlock?.Weighted ?? 0;
         var usedTokens = activeBlock?.Tokens ?? 0;
-        var leftPercent = Math.Max(0, Math.Min(100, 100 - usedWeighted / planCap * 100));
-        var resetAt = activeBlock?.EndTime;
-        _lastClaudeBlockWeightedUsed = usedWeighted;
-        _lastClaudeBlockComputedAt = now;
-        _lastClaudePlanKey = planKey;
-
         var costText = stats.TodayEstimatedCost > 0
-            ? " est. " + stats.TodayEstimatedCost.ToString("$0.00", CultureInfo.InvariantCulture)
+            ? " API-equivalent cost estimate " + stats.TodayEstimatedCost.ToString("$0.00", CultureInfo.InvariantCulture) + "."
             : "";
-        var resetText = resetAt is { } reset ? Format.RelativeReset(reset, now) : "--";
-        var weekly = new UsageWindow(null, null, $"{Format.Compact(stats.WeekTokens)} tok this week");
-
+        var weekly = new UsageWindow(null, null, $"{Format.Compact(stats.WeekTokens)} logged tok this week");
         var message =
-            $"{planLabel} plan, 5h block: {Format.Compact(usedWeighted)} weighted tok of {Format.Compact(planCap)} (raw {Format.Compact(usedTokens)} tok). " +
-            $"Today: {stats.TodaySessions.Count} sessions{costText}.";
+            "Conversation logs cannot determine Claude subscription quota or its reset. Enable official Claude sync for usage left. " +
+            $"Estimated local 5h block: {Format.Compact(usedWeighted)} weighted tok (raw {Format.Compact(usedTokens)} tok). " +
+            $"Today: {stats.TodaySessions.Count} logged sessions.{costText}";
 
         return new UsageSnapshot
         {
             Provider = UsageProvider.Claude,
-            Status = UsageStatusRules.Status(leftPercent, weekly.PercentLeft),
-            Used = leftPercent,
+            Status = UsageStatus.Unknown,
+            Used = null,
             Limit = null,
-            Percent = leftPercent,
-            ResetAt = resetAt,
+            Percent = null,
+            ResetAt = null,
             UpdatedAt = stats.LastUpdated ?? now,
             Message = message,
-            Source = "local ~/.claude",
+            Source = "local Claude conversation tokens",
             Unit = "%",
-            MetricTitle = "5 hour left",
+            MetricTitle = "Usage left",
             SecondaryTitle = "Reset",
-            SecondaryValue = resetText,
-            Weekly = weekly
+            SecondaryValue = "--",
+            Weekly = weekly,
+            PrimaryWindowMinutes = 300
         };
-    }
-
-    private void ClearLastClaudeBlock()
-    {
-        _lastClaudeBlockWeightedUsed = null;
-        _lastClaudeBlockComputedAt = null;
-        _lastClaudePlanKey = null;
     }
 
     internal static readonly TimeSpan ClaudeBlockDuration = TimeSpan.FromHours(5);
@@ -468,44 +395,6 @@ public sealed class LocalLogUsageService : IUsageService
         }
 
         return blocks;
-    }
-
-    private (double Cap, string Label, string Key) ClaudePlanCap()
-    {
-        string? organizationType = null;
-        var rateLimitTiers = new List<string>();
-        var path = Path.Combine(_home, ".claude.json");
-
-        try
-        {
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
-            if (document.RootElement.ValueKind == JsonValueKind.Object &&
-                document.RootElement.TryGetProperty("oauthAccount", out var oauth) &&
-                oauth.ValueKind == JsonValueKind.Object)
-            {
-                organizationType = GetString(oauth, "organizationType");
-                foreach (var key in new[] { "userRateLimitTier", "organizationRateLimitTier" })
-                {
-                    if (GetString(oauth, key) is { Length: > 0 } tier)
-                    {
-                        rateLimitTiers.Add(tier);
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // Missing or unreadable ~/.claude.json falls back to the estimated plan.
-        }
-
-        var resolution = ResolveClaudePlan(organizationType, rateLimitTiers, ClaudePlanOverride);
-
-        if (_calibrationStore.Load() is { } calibration && calibration.PlanKey == resolution.Key)
-        {
-            return (calibration.CapEstimate, $"{resolution.Label} (calibrated)", resolution.Key);
-        }
-
-        return (resolution.Cap, resolution.Label, resolution.Key);
     }
 
     /// Maps the account fields in ~/.claude.json to a 5-hour cap estimate.
@@ -563,21 +452,12 @@ public sealed class LocalLogUsageService : IUsageService
 
     private void ReadClaudeJsonl(
         string file,
+        DateTimeOffset now,
         DateTimeOffset dayStart,
         DateTimeOffset weekStart,
         ClaudeLogStats stats)
     {
-        IEnumerable<string> lines;
-        try
-        {
-            lines = File.ReadLines(file);
-        }
-        catch
-        {
-            return;
-        }
-
-        foreach (var line in lines)
+        foreach (var line in ReadJsonlLines(file))
         {
             try
             {
@@ -593,11 +473,12 @@ public sealed class LocalLogUsageService : IUsageService
                     continue;
                 }
 
-                var timestamp = ParseDate(GetString(root, "timestamp"));
-                var eventDate = timestamp ?? DateTimeOffset.MinValue;
+                if (ParseDate(GetString(root, "timestamp")) is not { } timestamp) continue;
+                if (timestamp - now > LocalClockSkewTolerance) continue;
+                var eventDate = timestamp;
                 var tokenUsage = ClaudeTokenUsage.FromJson(usage);
                 var tokens = tokenUsage.Total;
-                if (tokens <= 0)
+                if (!tokenUsage.IsValid || tokens <= 0 || !double.IsFinite(tokens))
                 {
                     continue;
                 }
@@ -617,10 +498,7 @@ public sealed class LocalLogUsageService : IUsageService
                     ? previous
                     : eventDate;
 
-                if (timestamp is { } eventTimestamp)
-                {
-                    stats.Events.Add(new ClaudeUsageEvent(eventTimestamp, tokens, tokenUsage.Weighted));
-                }
+                stats.Events.Add(new ClaudeUsageEvent(timestamp, tokens, tokenUsage.Weighted));
 
                 if (eventDate >= weekStart)
                 {
@@ -649,6 +527,29 @@ public sealed class LocalLogUsageService : IUsageService
     }
 
     // MARK: - Shared helpers
+
+    // File.ReadLines opens lazily: failures may occur while enumerating, not
+    // only when requesting the enumerable. An unreadable/rotated file supplies
+    // no quota rather than failing the whole refresh or inventing a value.
+    private static IEnumerable<string> ReadJsonlLines(string file)
+    {
+        StreamReader reader;
+        try { reader = File.OpenText(file); }
+        catch (IOException) { yield break; }
+        catch (UnauthorizedAccessException) { yield break; }
+        using (reader)
+        {
+            while (true)
+            {
+                string? line;
+                try { line = reader.ReadLine(); }
+                catch (IOException) { yield break; }
+                catch (UnauthorizedAccessException) { yield break; }
+                if (line == null) yield break;
+                if (line.Length <= 1_048_576) yield return line;
+            }
+        }
+    }
 
     private static IEnumerable<string> JsonlFiles(string directory)
     {
@@ -731,12 +632,12 @@ public sealed class LocalLogUsageService : IUsageService
 
         return value.ValueKind switch
         {
-            JsonValueKind.Number => value.GetDouble(),
+            JsonValueKind.Number when value.TryGetDouble(out var number) && double.IsFinite(number) => number,
             JsonValueKind.String when double.TryParse(
                 value.GetString(),
                 NumberStyles.Float,
                 CultureInfo.InvariantCulture,
-                out var parsed) => parsed,
+                out var parsed) && double.IsFinite(parsed) => parsed,
             _ => null
         };
     }
@@ -746,11 +647,12 @@ internal sealed record CodexRateLimitSnapshot(
     DateTimeOffset UpdatedAt,
     CodexRateLimit Primary,
     CodexRateLimit? Secondary,
-    string Source);
+    string Source,
+    bool HasUnknownSecondary = false);
 
 internal sealed record CodexRateLimit(double UsedPercent, int? WindowMinutes, DateTimeOffset? ResetsAt)
 {
-    public double LeftPercent => Math.Clamp(100 - UsedPercent, 0, 100);
+    public double LeftPercent => 100 - UsedPercent;
 }
 
 internal sealed class ClaudeLogStats
@@ -815,6 +717,9 @@ internal readonly record struct ClaudeTokenUsage(
             cacheCreation5m,
             cacheCreation1h);
     }
+
+    public bool IsValid => new[] { Input, Output, CacheCreation, CacheRead, CacheCreation5m, CacheCreation1h }
+        .All(value => double.IsFinite(value) && value >= 0);
 
     // cache_creation_input_tokens already equals ephemeral_5m + ephemeral_1h,
     // so do not add the breakdown again.

@@ -35,6 +35,35 @@ Windows ARM installations have no supported update from v0.4.2 onward. Installin
 - Independent settings window, persistent Save/Cancel controls, and scrolling for small screens.
 - Provider visibility, refresh interval, window position, and start-with-Windows settings.
 
+## Reading the meter (v0.4.3)
+
+Percentages show **remaining** quota. A reported 5% used becomes 95% left;
+95% used becomes 5% left. Decimal values are kept through parsing and window
+selection, then displayed to one decimal place when needed. A 99.5% reading
+stays 99.5%; only an exact 100% reading displays 100% or fills the tray bar
+completely.
+
+Expired windows do not imply a full allowance. A local Codex record with a past
+reset, no usable event timestamp, an age of 30 minutes or more, or a timestamp
+more than 5 minutes in the future cannot supply current remaining quota. Missing,
+invalid, stale, or unavailable values show unknown (`--%`) with an explanation.
+Refreshing the meter rereads its sources; it cannot make an old CLI record current.
+If authenticated usage sync fails, current quota stays unknown even if recent
+local records exist: a historical log does not prove it belongs to the currently
+signed-in account. A failed refresh does not retain an old percentage as a
+successful current reading. With local logs alone, a displayed Codex value is a
+last recorded limit; account switching and activity on other devices are not
+verified against that record.
+
+Local Claude conversation logs supply logged token counts and an API-equivalent
+cost estimate, not a reliable subscription quota or reset. Windows now leaves
+Claude quota unknown until opt-in official sync returns usable quota fields.
+Existing plan/calibration settings do not turn logged tokens into a percentage.
+
+Codex quota belongs to Codex even when its CLI sign-in uses a ChatGPT account.
+It does not measure ordinary ChatGPT chat limits or API billing. The app does not
+provide a separate ChatGPT chat-quota meter. See [provider details](providers.md#windows-quota-accuracy-v043).
+
 ## Sign in and enable sync
 
 Sign in to the relevant CLI or IDE **inside Windows**, then enable its sync option in Settings. Gemini has separate provider-display and quota-sync options. Sync is opt-in. Missing or unavailable usage is displayed with a reason and a next action.
@@ -44,7 +73,7 @@ Sign in to the relevant CLI or IDE **inside Windows**, then enable its sync opti
 | Codex official | `%USERPROFILE%\.codex\auth.json` |
 | Claude official | `%USERPROFILE%\.claude\.credentials.json` |
 | Codex local logs | `%USERPROFILE%\.codex\logs_2.sqlite` live rate limits and `%USERPROFILE%\.codex\sessions\**\*.jsonl` rate-limit events; the newest valid record wins |
-| Claude local logs | `%USERPROFILE%\.claude\projects\**\*.jsonl` usage and `.claude.json` plan data |
+| Claude local logs | `%USERPROFILE%\.claude\projects\**\*.jsonl` logged tokens and cost estimates; subscription quota remains unknown |
 | Gemini | The current user's running Antigravity language-server process and loopback quota service |
 
 Official requests go only to the vendor endpoints. Antigravity's ephemeral credential is sent only to its discovered loopback service. Redirects are not followed. Mac sign-in files are not automatically copied or reused.
@@ -70,7 +99,7 @@ The package script runs core checks before creating a self-contained ZIP and its
 
 ## Validation and limits
 
-Core and WPF checks use synthetic fixtures to cover parsing, opt-in gates, error paths, refresh/settings handlers, Save/Cancel, duration labels, and small-screen layout. The WPF checks invoke the actual Click handlers, not OS mouse input.
+Core and WPF checks use synthetic fixtures to cover parsing, opt-in gates, error paths, refresh/settings handlers, Save/Cancel, duration labels, and small-screen layout. Quota regression cases include 94.9, 95, 95.1, 99, 99.5, and 100, used/remaining conversion, missing windows, stale records, expired resets, and separation of providers and model buckets. The WPF checks invoke the actual Click handlers, not OS mouse input.
 
 Live account sync has not been verified with authenticated Windows accounts. Physical mouse and tray interaction on an Intel / AMD Windows PC (x64) has not been verified. See the release notes for the build and check results for each version.
 
