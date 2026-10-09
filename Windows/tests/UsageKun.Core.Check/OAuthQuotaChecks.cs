@@ -56,6 +56,8 @@ internal static class OAuthQuotaChecks
 
     private static void CheckWindowsAndSchemas()
     {
+        Assert(CLIOAuthUsageService.ParseCodexWhamUsage("""{"primary":{"used_percent":5,"window_minutes":10080},"secondary":{"used_percent":95,"window_minutes":10080}}""", Now) == null,
+            "duplicate quota durations must not silently discard a more constrained reading");
         foreach (var invalid in new[] { "-5", "101", "\"NaN\"", "\"Infinity\"", "true", "null" })
         {
             Assert(CLIOAuthUsageService.ParseCodexWhamUsage("{\"primary\":{\"used_percent\":" + invalid + "}}", Now) == null,
