@@ -22,7 +22,8 @@ asset are unchanged and are not rebuilt or replaced for this release.
   5 minutes in the future are rejected. Rereading an old file does not make
   its quota current. Failed authenticated sync leaves quota unknown, including
   when historical local logs belong to an unverified account. Local-only readings
-  do not verify account switching or activity on other devices. A failed refresh does not retain an old percentage as
+  do not verify account switching or activity on other devices. A failed refresh
+  does not retain an old percentage as
   a successful current reading.
 - Use field-defined units and reported window durations. Used and remaining
   percentages are converted once, Claude OAuth utilization remains a percentage,
@@ -47,7 +48,7 @@ and replace the complete app contents at the existing location. Keep
 Start `UsageKun.exe` and choose **Refresh now**. The package includes the runtime;
 the executable is unsigned. Windows ARM remains unsupported.
 
-See the [Windows guide](windows.md) for update steps and unknown-value guidance.
+See the [Windows guide](https://github.com/Kohei-SAWADA/usage_kun/blob/v0.4.3/docs/windows.md) for update steps and unknown-value guidance.
 macOS users continue to use the unchanged v0.4.2 package.
 
 ## Validation and limits
@@ -69,5 +70,5 @@ macOS users continue to use the unchanged v0.4.2 package.
   remain unsupported.
 
 The review used similar Windows open-source projects as design references; no
-third-party code was copied. See [provider details](providers.md#windows-quota-accuracy-v043)
+third-party code was copied. See [provider details](https://github.com/Kohei-SAWADA/usage_kun/blob/v0.4.3/docs/providers.md#windows-quota-accuracy-v043)
 for source distinctions, references, and limitations.
