@@ -15,11 +15,13 @@ macOS 14+; Windows 10/11 on Intel/AMD x64. Windows ARM is unsupported. The macOS
 
 ## Demo
 
-[Watch the real macOS demo (MP4)](assets/promo/usage-kun-demo.mp4)
+[Watch the real macOS demo (MP4, about 24 seconds, silent)](assets/promo/usage-kun-demo-v2.mp4)
 
-![Actual usage-kun interaction on macOS](assets/promo/usage-kun-demo.gif)
+![Actual usage-kun menu-bar popover, desktop meter, and provider controls on macOS](assets/promo/usage-kun-demo-v2.gif)
 
-The recording shows actual desktop-meter readings and provider display controls on this Mac. Displayed values can include a local-log estimate, including Claude's empty-log fallback. Unavailable provider data is not demonstrated as live quota; Gemini quota fetching and Windows interactions are not shown.
+Edited from real recordings on this Mac: the menu-bar popover's Usage and Settings tabs, desktop-meter readings, and provider display controls. Displayed values can include a local-log estimate, including Claude's empty-log fallback. Antigravity was installed but not running during the check, so Gemini quota fetching is not shown; no IDE launch, sign-in, or token setup was performed. Windows interactions are not shown.
+
+Previous desktop-meter demo: [MP4](assets/promo/usage-kun-demo.mp4) · [GIF](assets/promo/usage-kun-demo.gif).
 
 ## At a glance
 

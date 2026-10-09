@@ -15,11 +15,13 @@ macOS 14以降、Windows 10/11のIntel/AMD x64に対応。Windows ARMは非対�
 
 ## デモ
 
-[Macでの実操作デモを見る（MP4）](assets/promo/usage-kun-demo.mp4)
+[Macでの実操作デモを見る（MP4・約24秒・無音）](assets/promo/usage-kun-demo-v2.mp4)
 
-![macOS上のusage-kunの実操作](assets/promo/usage-kun-demo.gif)
+![macOS上のusage-kunのメニューバー小窓・デスクトップメーター・サービス表示切替](assets/promo/usage-kun-demo-v2.gif)
 
-このMacのデスクトップメーターの実表示とサービス表示切替を収録しています。表示値にはClaudeの空ログ時の代替表示など、ローカルログの推定が含まれる場合があります。取得できないサービスをライブ残量として演出していません。Geminiの残量取得とWindowsの操作は映像に含みません。
+このMacで実際に収録した映像を編集し、メニューバー小窓のUsage・Settingsタブ、デスクトップメーターの実表示、サービス表示切替を紹介しています。表示値にはClaudeの空ログ時の代替表示など、ローカルログの推定が含まれる場合があります。確認時にはAntigravityがインストール済みでも起動していなかったため、Geminiの残量取得は収録していません。IDEの起動・ログイン・トークン設定は行っていません。Windowsの操作も映像に含みません。
+
+以前のデスクトップメーターのデモ：[MP4](assets/promo/usage-kun-demo.mp4)・[GIF](assets/promo/usage-kun-demo.gif)。
 
 ## 主な機能
 
