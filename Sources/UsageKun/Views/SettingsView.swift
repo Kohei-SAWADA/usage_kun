@@ -1,9 +1,10 @@
+import ServiceManagement
 import SwiftUI
 import UsageKunCore
 
 struct SettingsView: View {
     @ObservedObject var store: UsageStore
-    @State private var launchAtLoginMessage: String?
+    @StateObject private var login = LoginService()
 
     var body: some View {
         ScrollView {
@@ -42,8 +43,9 @@ struct SettingsView: View {
                         isOn: launchAtLoginBinding
                     )
 
-                    if let launchAtLoginMessage {
-                        SettingsNote(text: launchAtLoginMessage)
+                    SettingsNote(text: login.message)
+                    if login.message.contains("Approval required") {
+                        Button("Open Login Items Settings") { SMAppService.openSystemSettingsLoginItems() }
                     }
 
                     Divider().overlay(AppTheme.barTrack)
@@ -123,10 +125,8 @@ struct SettingsView: View {
             }
             .padding(16)
         }
-        .onAppear {
-            launchAtLoginMessage = LaunchAtLoginService.apply(isEnabled: store.config.launchAtLoginEnabled)
-                ?? LaunchAtLoginService.statusMessage()
-        }
+        .onAppear { login.refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in login.refresh() }
     }
 
     private func configBinding<Value>(_ keyPath: WritableKeyPath<AppConfig, Value>) -> Binding<Value> {
@@ -153,13 +153,13 @@ struct SettingsView: View {
 
     private var launchAtLoginBinding: Binding<Bool> {
         Binding(
-            get: { store.config.launchAtLoginEnabled },
+            get: { login.enabled },
             set: { value in
                 var config = store.config
                 config.launchAtLoginEnabled = value
                 store.updateConfig(config)
-                launchAtLoginMessage = LaunchAtLoginService.apply(isEnabled: value)
-                    ?? LaunchAtLoginService.statusMessage()
+                guard store.lastErrorMessage == nil else { return }
+                login.setEnabled(value)
             }
         )
     }

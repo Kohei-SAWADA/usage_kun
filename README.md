@@ -500,3 +500,12 @@ For Windows build, core checks, WPF checks, and packaging commands, see [Windows
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+
+### Login startup
+
+Fresh installations enable login startup once, after the macOS app is moved to `/Applications` or `~/Applications` (Windows: start `UsageKun.exe` from its permanent folder). Change **Launch at Login** / **Start with Windows** in Settings at any time. Existing app settings and OS-disabled login items are preserved during upgrades; legacy installs with no startup entry stay off because an old explicit off cannot be distinguished from never having enabled it. Registration is not repeated on every launch or usage refresh.
+
+macOS uses `SMAppService.mainApp`; Windows uses one per-user `HKCU` Run value. Settings reports the actual OS status, pending approval, or failure. If the OS blocks startup, approve it in macOS **General > Login Items** or Windows **Apps > Startup** yourself; the app does not bypass OS controls or request administrator access. Replace upgrades at the same location. An enabled installation moved to another permanent location repairs its existing registration once; disabled items stay disabled. Before moving an older version, turn startup off at the old location.
+
+Logout/login and physical Windows startup have not been tested for this change. Automated checks use isolated registration backends and reconstructed saved preferences; they do not log you out or modify your real startup items.

@@ -27,7 +27,8 @@ public partial class SettingsWindow : Window
         AntigravityUsageCheck.IsChecked = config.AntigravityUsageEnabled;
         DesktopWidgetCheck.IsChecked = config.DesktopWidgetEnabled;
         LaunchAtLoginCheck.IsChecked = config.LaunchAtLoginEnabled;
-        ConfigPathText.Text = $"usage_kun 0.4.3 · Windows\nSettings file: {new AppConfigStore().ConfigPath}";
+        StartupStatusText.Text = LaunchAtLogin.StatusMessage();
+        ConfigPathText.Text = $"usage_kun 0.4.4 · Windows\nSettings file: {new AppConfigStore().ConfigPath}";
 
         foreach (var minutes in IntervalChoices)
         {
@@ -50,6 +51,8 @@ public partial class SettingsWindow : Window
         config.AntigravityUsageEnabled = AntigravityUsageCheck.IsChecked == true;
         config.DesktopWidgetEnabled = DesktopWidgetCheck.IsChecked == true;
         config.LaunchAtLoginEnabled = LaunchAtLoginCheck.IsChecked == true;
+        var startupChanged = config.LaunchAtLoginEnabled != _store.Config.LaunchAtLoginEnabled;
+        if (startupChanged) config.LaunchAtLoginInitialized = true;
         config.RefreshIntervalMinutes = RefreshIntervalCombo.SelectedItem is int minutes ? minutes : 5;
 
         _store.UpdateConfig(config);
@@ -58,6 +61,12 @@ public partial class SettingsWindow : Window
             SaveErrorText.Text = error;
             SaveErrorText.Visibility = Visibility.Visible;
             return;
+        }
+        if (startupChanged)
+        {
+            LaunchAtLogin.Apply(config.LaunchAtLoginEnabled);
+            StartupStatusText.Text = LaunchAtLogin.StatusMessage();
+            if (LaunchAtLogin.LastError != null || StartupStatusText.Text.StartsWith("Disabled by Windows")) return;
         }
         Close();
     }

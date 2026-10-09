@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let usageStore: UsageStore
     private let dashboardRouter = DashboardRouter()
     private let usageNotifier = UsageNotifier()
+    private let login = LoginService()
 
     override init() {
         let configStore = AppConfigStore()
@@ -46,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observeUsageChanges()
         usageNotifier.start(store: usageStore)
         scheduleRefreshTimer(intervalMinutes: usageStore.config.refreshIntervalMinutes)
-        _ = LaunchAtLoginService.apply(isEnabled: usageStore.config.launchAtLoginEnabled)
+        login.initialize(existingInstallation: AppConfigStore().hasSavedConfig, requested: usageStore.config.launchAtLoginEnabled)
         usageStore.refresh()
     }
 

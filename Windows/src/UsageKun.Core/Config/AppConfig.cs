@@ -15,6 +15,7 @@ public sealed class AppConfig
     public int RefreshIntervalMinutes { get; set; } = 5;
     public bool DesktopWidgetEnabled { get; set; } = true;
     public bool LaunchAtLoginEnabled { get; set; } = true;
+    public bool LaunchAtLoginInitialized { get; set; }
     public bool MenuBarShowsNumbers { get; set; }
     public bool OnboardingCompleted { get; set; }
     public bool NotificationsEnabled { get; set; }
