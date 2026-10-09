@@ -258,9 +258,9 @@ open UsageKun.app
 
 usage-kun は段階的なデータ取得モデルを使います。
 
-1. Local logs: Claude Code と Codex の既知のローカル使用量ログを読んで推定します。
+1. Local logs: macOS は Claude Code と Codex のローカルログから推定します。Windows は新しい記録の Codex 利用枠と Claude のトークン数を読みます。トークン数だけでは Claude の残量は求めず、不明にします。
 2. Official usage sync: opt-in の場合のみ、同じ OS の CLI サインイン状態を読み取り専用で再利用し、公式残量と制限期間を取得します。macOS / Windows に対応しています。
-3. Claude calibration: Claude 公式 sync が成功した場合、その時点の公式値を使ってローカル推定用の 5-hour cap を較正できます。
+3. Claude calibration（macOS のみ）: Claude 使用量 sync が成功した場合、その値でローカル推定用の 5-hour cap を較正できます。Windows はトークン上限から利用枠の残量を推定しません。
 4. Gemini（Antigravity）: 有効にした場合のみ、起動中のローカル Antigravity IDE から Gemini の残量を取得します。取得できない場合に CLI ログや別サービスの値で補うことはしません。
 
 詳細は [docs/providers.md](docs/providers.md) を参照してください。
@@ -346,7 +346,7 @@ AI 使用量 monitor や menu bar utility はすでに複数あります。usage
 ## 制限
 
 - 公式 usage endpoint は予告なく変わる可能性があります。
-- Claude local-log quota 推定は best-effort です。`requestId` と `message.id` による重複排除を行い、opt-in の Claude 公式使用量 sync が成功した後は cap を自己較正できます。
+- macOS の Claude local-log quota 推定は best-effort です。Windows は認証済みの利用枠を取得できない場合、Claude の残量を不明にします。`requestId` と `message.id` による重複排除を行い、opt-in の Claude 公式使用量 sync が成功した後は cap を自己較正できます。
 - 公式 sync には、同じ OS・ユーザーでの Claude Code / Codex CLI のサインイン状態が必要です。Mac と Windows の間で自動共有はしません。
 - Gemini は起動中・サインイン済みの Antigravity IDE が必要です。IDE の内部 API が変わると取得できなくなる場合があります。
 - 通知は macOS の packaged app (`UsageKun.app`) 向けです。Windows の通知は未対応です。
@@ -354,6 +354,14 @@ AI 使用量 monitor や menu bar utility はすでに複数あります。usage
 - macOS 版は ad-hoc 署名のみで notarization はしていないため、download した copy の初回起動時に一度だけ Gatekeeper の許可が必要です。Windows 版の実行ファイルは未署名です。
 
 ## リリース履歴
+
+### v0.4.3 — Windows の残量精度を修正
+
+- 期限切れ・古い記録・不正な値・未取得の窓は不明にし、99.5% を 100% に丸めず小数を保持します。
+- Windows の Claude 会話トークン上限から、契約の残量を推定する処理を廃止しました。
+- Codex の期間と各サービスを分離します。macOS は既存の v0.4.2 配布ファイルのままです。
+
+詳細: [docs/release-notes-v0.4.3.md](docs/release-notes-v0.4.3.md)
 
 ### v0.4.2
 

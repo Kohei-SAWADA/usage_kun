@@ -260,9 +260,9 @@ If you move the app to a different folder, update your shortcuts. Open the new `
 
 usage-kun uses a staged data model:
 
-1. Local logs: reads known Claude Code and Codex local usage logs for estimates.
+1. Local logs: macOS reads Claude Code and Codex usage estimates. Windows reads fresh recorded Codex quota and Claude token totals; token totals alone leave Claude quota unknown.
 2. Official usage sync: opt-in only; reuses CLI sign-ins on the same OS in read-only mode to fetch official quota numbers and limit durations. Available on macOS and Windows.
-3. Claude calibration: when official Claude sync succeeds, usage-kun can calibrate the local Claude 5-hour cap estimate for later fallback use.
+3. Claude calibration (macOS only): successful Claude usage sync can calibrate the local 5-hour cap estimate for later fallback use. Windows does not derive quota from token caps.
 4. Gemini (Antigravity): opt-in only; reads the running IDE's local quota service for **Gemini Models** 5-hour and weekly remaining usage and reset times. It does not read Gemini app usage or Gemini API billing, or substitute CLI logs or another provider's quota when unavailable.
 
 See [docs/providers.md](docs/providers.md) for details.
@@ -350,7 +350,7 @@ The emphasis is on:
 ## Limitations
 
 - Official usage endpoints can change without notice.
-- Claude local-log quota estimates are best-effort. They deduplicate repeated JSONL rows by `requestId` and `message.id`, and can self-calibrate after opt-in official Claude usage sync succeeds.
+- macOS Claude local-log quota estimates are best-effort. Windows leaves Claude quota unknown without usable authenticated quota. They deduplicate repeated JSONL rows by `requestId` and `message.id`, and can self-calibrate after opt-in official Claude usage sync succeeds.
 - Official sync requires existing Claude Code / Codex CLI sign-in state on the same OS where usage-kun runs.
 - Gemini requires the running, signed-in Antigravity IDE. Its local API may change, and unavailable quota stays unknown.
 - Notifications are intended for the packaged macOS `UsageKun.app` build; Windows toast notifications are not implemented.
@@ -358,6 +358,14 @@ The emphasis is on:
 - Windows reads Codex live quota from `logs_2.sqlite` and session JSONL logs; auxiliary token/thread statistics from `state_5.sqlite` are not implemented. See the [Windows guide](docs/windows.md#validation-and-limits) for Windows validation status.
 
 ## Release History
+
+### v0.4.3 — Windows quota accuracy
+
+- Keep expired, stale, invalid, unavailable, and missing quota unknown; retain decimal percentages instead of rounding 99.5% to 100%.
+- Stop converting Claude conversation token caps into subscription remaining quota on Windows.
+- Keep Codex windows and provider identity distinct. macOS remains on its existing v0.4.2 asset.
+
+Details: [docs/release-notes-v0.4.3.md](docs/release-notes-v0.4.3.md)
 
 ### v0.4.2
 
