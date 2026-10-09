@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -63,6 +64,7 @@ internal static class Program
             AntigravityProviderEnabled = false,
             LaunchAtLoginEnabled = false,
             LocalLogEnabled = false,
+            ClaudePlanOverride = "max_5x",
             DesktopWidgetEnabled = true
         });
         var service = new FixtureUsageService { Current = [Quota(UsageProvider.Codex, 10080)] };
@@ -103,6 +105,8 @@ internal static class Program
         Check(HasText(widget, "5H") && HasText(widget, "1W"), "dual-limit Codex renders both 5H and 1W");
         Check(HasText(widget, "5-HOUR PRIMARY"), "5-hour Codex header is 5-HOUR");
 
+        await CheckPercentRenderingAsync(service, store, widget, rows);
+
         service.Current = [Quota(UsageProvider.Codex, null)];
         await store.RefreshAsync();
         Check(HasText(widget, "LIMIT") && !HasText(widget, "5H") && !HasText(widget, "1W"), "unknown-duration Codex renders LIMIT without invented duration");
@@ -116,6 +120,21 @@ internal static class Program
         await LayoutAsync(widget);
         Check(rows.Children.Count == 3 && HasText(widget, "Gemini (Antigravity)"), "all three providers render with Gemini name");
         Check(widget.ActualHeight <= widget.MaxHeight + 1, "three-provider meter respects work-area height");
+
+        service.Current =
+        [
+            Quota(UsageProvider.Codex, 300) with { Percent = 95, Weekly = new UsageWindow(84, DateTimeOffset.Now.AddDays(6)) },
+            Quota(UsageProvider.Claude, 300) with { Percent = 41, Weekly = new UsageWindow(33, DateTimeOffset.Now.AddDays(6)) },
+            Quota(UsageProvider.Antigravity, 300) with { Percent = 61, Weekly = new UsageWindow(72, DateTimeOffset.Now.AddDays(6)) }
+        ];
+        await store.RefreshAsync();
+        var providerRows = rows.Children.Cast<DependencyObject>().ToArray();
+        Check(HasText(providerRows[0], "Codex") && HasText(providerRows[0], "95%") && HasText(providerRows[0], "84%")
+            && !HasText(providerRows[0], "41%"), "Codex renders only its own primary and weekly quotas");
+        Check(HasText(providerRows[1], "Claude Code") && HasText(providerRows[1], "41%") && HasText(providerRows[1], "33%")
+            && !HasText(providerRows[1], "95%"), "Claude renders only its own primary and weekly quotas");
+        Check(HasText(providerRows[2], "Gemini (Antigravity)") && HasText(providerRows[2], "61%") && HasText(providerRows[2], "72%")
+            && !HasText(providerRows[2], "95%"), "Antigravity renders only its own primary and weekly quotas");
 
         // A deliberately small viewport exercises scrolling even on a large
         // developer monitor. Every row visibly identifies its synthetic data.
@@ -145,6 +164,10 @@ internal static class Program
         Check(IsInsideWindow(save, settings) && IsInsideWindow(cancel, settings), "settings Save/Cancel stay visible on a small screen");
         var settingsScroll = Descendants<ScrollViewer>(settings).First();
         Check(settingsScroll.ExtentHeight > settingsScroll.ViewportHeight, "settings options can scroll on a small screen");
+        Check(settings.FindName("ClaudePlanCombo") == null,
+            "settings no longer offers a Claude plan selector that would imply a local quota estimate");
+        Check(Named<TextBlock>(settings, "ClaudeQuotaHelpText").Text.Contains("Enable Claude usage sync"),
+            "settings explains that Claude remaining quota needs usage sync");
 
         Named<CheckBox>(settings, "ClaudeProviderCheck").IsChecked = false;
         Named<CheckBox>(settings, "CodexProviderCheck").IsChecked = true;
@@ -165,6 +188,7 @@ internal static class Program
             "Save persists sync opt-ins only to the temporary config");
         Check(saved.RefreshIntervalMinutes == 10 && !saved.DesktopWidgetEnabled && !saved.LaunchAtLoginEnabled,
             "Save persists behavior choices without running the product app");
+        Check(saved.ClaudePlanOverride == "max_5x", "Save preserves the unused legacy Claude plan preference");
 
         var beforeCancel = File.ReadAllText(configStore.ConfigPath);
         var canceledSettings = NewSettings(store, temporaryRoot, windows);
@@ -176,6 +200,119 @@ internal static class Program
         Check(!canceledSettings.IsVisible, "Cancel Click handler closes settings");
         Check(File.ReadAllText(configStore.ConfigPath) == beforeCancel && store.Config.CodexProviderEnabled
             && store.Config.RefreshIntervalMinutes == 10, "Cancel leaves saved config and active choices unchanged");
+    }
+
+    private static async Task CheckPercentRenderingAsync(FixtureUsageService service, UsageStore store,
+        WidgetWindow widget, StackPanel rows)
+    {
+        // These are normalized REMAINING percentages, not live account data
+        // or API cost. Used percentages are converted in provider fixtures.
+        var boundaries = new (double Left, string Text)[]
+        {
+            (95, "95%"), (94.9, "94.9%"), (95.1, "95.1%"),
+            (99, "99%"), (99.5, "99.5%"), (100, "100%")
+        };
+        var tray = typeof(WidgetWindow).Assembly.GetType("UsageKun.App.TrayIcon")
+            ?? throw new InvalidOperationException("Tray rendering type was not found.");
+        var tooltip = tray.GetMethod("TooltipPercent", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Tray tooltip formatter was not found.");
+        var fill = tray.GetMethod("MeterFillHeight", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Tray meter renderer was not found.");
+
+        foreach (var (left, expected) in boundaries)
+        {
+            service.Current = [Quota(UsageProvider.Codex, 300) with
+            {
+                Percent = left,
+                Used = left,
+                Weekly = new UsageWindow(left, DateTimeOffset.Now.AddDays(6))
+            }];
+            await store.RefreshAsync();
+            await LayoutAsync(widget);
+            var row = rows.Children.Cast<DependencyObject>().Single();
+            Check(Descendants<TextBlock>(row).Count(block => block.Text == expected) == 3,
+                $"remaining {left} renders {expected} in header, primary and weekly lines");
+            var bars = Descendants<Grid>(row).Where(grid => grid.ColumnDefinitions.Count == 2
+                && grid.ColumnDefinitions.Cast<ColumnDefinition>().All(column => column.Width.GridUnitType == GridUnitType.Star)).ToArray();
+            Check(bars.Length == 2 && bars.All(bar => bar.ColumnDefinitions[0].Width.Value == left
+                && Math.Abs(bar.ColumnDefinitions[1].Width.Value - (100 - left)) < 0.000001),
+                $"remaining {left} keeps its precise primary and weekly bar proportions");
+            Check(Equals(tooltip.Invoke(null, [left, UsageStatus.Ok]), expected + " left"),
+                $"remaining {left} keeps the same tray tooltip precision");
+            var fillHeight = (int)(fill.Invoke(null, [left, 28]) ?? -1);
+            Check(left == 100 ? fillHeight == 28 : fillHeight < 28,
+                $"remaining {left} fills the entire tray meter only at exact 100");
+        }
+
+        service.Current = [Quota(UsageProvider.Codex, 300) with
+        {
+            Percent = 94.9,
+            Used = 94.9,
+            Weekly = new UsageWindow(95.1, DateTimeOffset.Now.AddDays(6))
+        }];
+        await store.RefreshAsync();
+        Check(HasText(widget, "94.9%") && HasText(widget, "95.1%") && !HasText(widget, "100%"),
+            "primary and weekly remaining values render independently");
+
+        service.Current = [Quota(UsageProvider.Codex, 300) with
+        {
+            Percent = 95,
+            Weekly = new UsageWindow(null, null)
+        }];
+        await store.RefreshAsync();
+        Check(HasText(widget, "95%") && HasText(widget, "UNKNOWN") && !HasText(widget, "100%"),
+            "an unreported weekly quota renders UNKNOWN without inventing 100%");
+
+        foreach (var invalid in new double?[] { null, double.NaN, double.PositiveInfinity, -1, 101 })
+        {
+            service.Current = [Quota(UsageProvider.Codex, 300) with
+            {
+                Percent = invalid,
+                Used = null,
+                Status = UsageStatus.Unknown,
+                Weekly = new UsageWindow(invalid, null)
+            }];
+            await store.RefreshAsync();
+            await LayoutAsync(widget);
+            Check(HasText(widget, "--%") && HasText(widget, "UNKNOWN") && !HasText(widget, "100%"),
+                "an unknown or invalid remaining quota renders unavailable without a numeric fallback");
+            Check(Equals(tooltip.Invoke(null, [invalid, UsageStatus.Unknown]), "Unknown"),
+                "an unknown or invalid remaining quota renders Unknown in the tray tooltip");
+        }
+
+        service.Current = [Quota(UsageProvider.Codex, 300) with
+        {
+            Percent = 100,
+            Weekly = new UsageWindow(100, DateTimeOffset.Now.AddDays(6))
+        }];
+        await store.RefreshAsync();
+        Check(HasText(widget, "100%"), "the refresh failure fixture starts from a real synthetic 100%");
+        service.FailNextRefresh();
+        await store.RefreshAsync();
+        Check(HasText(widget, "--%") && HasText(widget, "UNKNOWN") && !HasText(widget, "100%"),
+            "a failed refresh replaces the previous 100% with unknown primary and weekly quotas");
+        Check(Named<TextBlock>(widget, "ErrorText").IsVisible && store.MostConstrainedPercent == null,
+            "a failed refresh shows its safe explanation and leaves the tray quota unknown");
+
+        service.Current = [Quota(UsageProvider.Codex, 300) with
+        {
+            Percent = 100,
+            UpdatedAt = DateTimeOffset.Now.AddHours(-1),
+            Weekly = new UsageWindow(100, DateTimeOffset.Now.AddDays(6))
+        }];
+        await store.RefreshAsync();
+        Check(HasText(widget, "--%") && !HasText(widget, "100%"),
+            "an expired snapshot cannot display an old 100% as current quota");
+
+        service.Current = [Quota(UsageProvider.Codex, 300) with
+        {
+            Percent = 100,
+            ResetAt = DateTimeOffset.Now.AddMinutes(-1),
+            Weekly = new UsageWindow(95, DateTimeOffset.Now.AddDays(6))
+        }];
+        await store.RefreshAsync();
+        Check(HasText(widget, "--%") && HasText(widget, "95%") && !HasText(widget, "100%"),
+            "an elapsed primary window is unknown while its current weekly quota stays distinct");
     }
 
     private static SettingsWindow NewSettings(UsageStore store, string temporaryRoot, List<Window> windows)
@@ -271,6 +408,7 @@ internal static class Program
         private readonly object _sync = new();
         private IReadOnlyList<UsageSnapshot> _current = [];
         private TaskCompletionSource? _nextGate;
+        private bool _failNextRefresh;
         private int _callCount;
         public int CallCount { get { lock (_sync) return _callCount; } }
         public IReadOnlyList<UsageSnapshot> Current
@@ -288,18 +426,27 @@ internal static class Program
             }
         }
 
+        public void FailNextRefresh()
+        {
+            lock (_sync) _failNextRefresh = true;
+        }
+
         public async Task<IReadOnlyList<UsageSnapshot>> SnapshotsAsync(DateTimeOffset now)
         {
             TaskCompletionSource? gate;
             IReadOnlyList<UsageSnapshot> snapshots;
+            bool fail;
             lock (_sync)
             {
                 _callCount++;
                 gate = _nextGate;
                 _nextGate = null;
                 snapshots = _current;
+                fail = _failNextRefresh;
+                _failNextRefresh = false;
             }
             if (gate != null) await gate.Task;
+            if (fail) throw new InvalidOperationException("TEST DATA ONLY. Synthetic refresh failure.");
             return snapshots;
         }
     }

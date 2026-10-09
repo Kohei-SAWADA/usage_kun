@@ -28,6 +28,10 @@ await CheckOfficialTransport();
 await CheckOptInSources();
 await CheckRefreshConfigurationRace();
 await CheckRefreshFailureRecovery();
+await CheckQuotaRefreshSafety();
+await CheckFailedOfficialDoesNotBorrowLocalQuota();
+await LocalQuotaChecks.RunAsync();
+await OAuthQuotaChecks.RunAsync();
 
 if (args.Contains("--claude-estimate"))
 {
@@ -278,8 +282,8 @@ static async Task CheckCodexSessionRateLimits()
 
             var expiredService = new LocalLogUsageService(expiredHome, new ClaudeCalibrationStore(Path.Combine(expiredHome, "claude_calibration.json")));
             var expired = (await expiredService.SnapshotsAsync(now)).First(snapshot => snapshot.Provider == UsageProvider.Codex);
-            ExpectClose(expired.Percent, 100, "expired 5h window should show a fresh 100% left");
-            Expect(expired.SecondaryValue == "fresh", "expired 5h window should label the reset as fresh");
+            Expect(expired.Percent == null && expired.Status == UsageStatus.Unknown, "expired 5h window must stay unknown until newly reported");
+            Expect(expired.SecondaryValue != "fresh", "expired record must not imply a fresh quota window");
         }
         finally
         {
@@ -455,7 +459,7 @@ static async Task CheckCodexGeneralLimitsAndResetTimes()
         Expect(snapshot.Percent == utcSnapshot.Percent && snapshot.ResetAt == utcSnapshot.ResetAt,
             "timezone offset must not change quota or reset instant");
         snapshot = (await service.SnapshotsAsync(now.AddMinutes(51), true, false)).Single();
-        ExpectClose(snapshot.Percent, 100, "expired relative reset must not slide forward on every refresh");
+        Expect(snapshot.Percent == null && snapshot.Status == UsageStatus.Unknown, "expired relative reset must not manufacture quota on refresh");
 
         foreach (var reset in new[] { now.AddHours(1).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
             now.AddHours(1).ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture),
@@ -483,16 +487,13 @@ static async Task CheckClaudeDedup()
         var snapshots = await service.SnapshotsAsync(now);
         var claude = snapshots.First(snapshot => snapshot.Provider == UsageProvider.Claude);
 
-        var expectedPercent = 100 - 5_500.0 / 2_000_000.0 * 100;
-        ExpectClose(claude.Percent, expectedPercent, "Claude dedup should use 5.5K weighted tokens");
+        Expect(claude.Percent == null && claude.Status == UsageStatus.Unknown, "deduplicated local tokens cannot establish subscription quota");
         Expect(claude.Message?.Contains("5.5K weighted tok") == true,
             "Claude message should show deduplicated weighted usage");
         Expect(claude.Message?.Contains("8.5K") != true,
             "Claude message should not show naive duplicate total");
 
-        // Both fixture events sit in one 5h block starting at the floor of t1's hour.
-        var expectedReset = LocalLogUsageService.RoundedDownToHour(now.AddMinutes(-30)).AddHours(5);
-        Expect(claude.ResetAt == expectedReset, "Claude reset should be block start (hour floor) + 5h");
+        Expect(claude.ResetAt == null, "local activity must not invent the subscription reset time");
         Expect(claude.Weekly?.Detail?.Contains("tok this week") == true,
             "Claude weekly detail should show week tokens");
     }
@@ -509,26 +510,18 @@ static async Task CheckClaudeCalibration()
     try
     {
         WriteClaudeFixture(home, now, scale: 100);
-
         var calibrationStore = new ClaudeCalibrationStore(Path.Combine(home, "claude_calibration.json"));
-        var service = new LocalLogUsageService(home, calibrationStore);
-        _ = await service.SnapshotsAsync(now);
-        service.RecordClaudeOfficialSample(usedPercent: 25, now: now);
-
-        var calibration = calibrationStore.Load();
-        Expect(calibration != null, "Claude calibration should be saved");
-        ExpectClose(calibration?.CapEstimate, 2_200_000, "Claude calibration cap should be learned from official used percent");
-        Expect(calibration?.SampleCount == 1, "Claude calibration should record sample count");
-
-        var snapshots = await service.SnapshotsAsync(now);
-        var claude = snapshots.First(snapshot => snapshot.Provider == UsageProvider.Claude);
-        Expect(claude.Message?.Contains("(calibrated)") == true, "Claude message should mark calibrated cap");
-        ExpectClose(claude.Percent, 75, "Claude calibrated percent should use learned cap");
+        calibrationStore.Save(new ClaudeCalibration { CapEstimate = 2_200_000, SampleCount = 1,
+            PlanKey = "estimated", UpdatedAt = now.AddDays(-7) });
+        var before = File.ReadAllText(calibrationStore.FilePath);
+        var claude = (await new LocalLogUsageService(home, calibrationStore).SnapshotsAsync(now))
+            .First(snapshot => snapshot.Provider == UsageProvider.Claude);
+        Expect(claude.Percent == null && claude.Weekly?.PercentLeft == null,
+            "legacy learned token caps must not fabricate Claude quota");
+        Expect(File.ReadAllText(calibrationStore.FilePath) == before,
+            "Windows quota reads must neither overwrite nor migrate legacy calibration");
     }
-    finally
-    {
-        TryDelete(home);
-    }
+    finally { TryDelete(home); }
 }
 
 static void CheckClaudePricing()
@@ -858,6 +851,89 @@ static async Task CheckRefreshFailureRecovery()
             "a successful retry must clear the previous refresh error");
     }
     finally { TryDelete(home); }
+}
+
+static async Task CheckQuotaRefreshSafety()
+{
+    var now = DateTimeOffset.Now;
+    var known = new UsageSnapshot { Provider = UsageProvider.Codex, Status = UsageStatus.Ok,
+        UpdatedAt = now, Percent = 95, Used = 95, Unit = "%", PrimaryWindowMinutes = 300,
+        ResetAt = now.AddHours(1), Weekly = new UsageWindow(84, now.AddDays(1)) };
+    var expired = UsageStore.ValidateForDisplay(known with { ResetAt = now.AddSeconds(-1) }, now);
+    Expect(expired.Percent == null && expired.Weekly?.PercentLeft == 84 && expired.Status == UsageStatus.Unknown,
+        "expired primary must not erase the still-valid weekly reading or invent100");
+    var expiredWeekly = UsageStore.ValidateForDisplay(known with { Weekly = new UsageWindow(84, now.AddSeconds(-1)) }, now);
+    Expect(expiredWeekly.Percent == 95 && expiredWeekly.Weekly?.PercentLeft == null &&
+        UsageStore.TrayEntriesFor([expiredWeekly]).Single().PercentLeft == null,
+        "unknown weekly must not be treated as100 in the aggregate");
+    foreach (var timestamp in new[] { now.AddMinutes(-30), now.AddMinutes(6) })
+    {
+        var stale = UsageStore.ValidateForDisplay(known with { UpdatedAt = timestamp }, now);
+        Expect(stale.Percent == null && stale.Weekly?.PercentLeft == null, "stale/future snapshot is unknown");
+    }
+    foreach (var invalid in new[] { double.NaN, double.PositiveInfinity, -1, 101 })
+        Expect(UsageStore.ValidateForDisplay(known with { Percent = invalid }, now).Percent == null,
+            "invalid provider output is unknown before display");
+    var home = TemporaryHome();
+    try
+    {
+        Directory.CreateDirectory(home);
+        var configStore = new AppConfigStore(Path.Combine(home, "config.json"));
+        configStore.Save(new AppConfig { ClaudeProviderEnabled = false });
+        var service = new QuotaFailureFixtureService();
+        var store = new UsageStore(service, configStore);
+        await store.RefreshAsync();
+        Expect(store.Snapshots.Single().Percent == 100, "explicit fresh100 is supported");
+        await store.RefreshAsync();
+        Expect(store.Snapshots.Single().Percent == null && store.MostConstrainedPercent == null &&
+            store.Snapshots.Single().PercentDisplay == "--%", "failed refresh cannot retain apparent current100");
+        Expect(store.LastErrorMessage?.Contains("fixture-private") != true, "refresh errors remain sanitized");
+        await store.RefreshAsync();
+        Expect(store.Snapshots.Single().Percent == 95 && store.LastErrorMessage == null,
+            "successful recovery restores the exact quota");
+    }
+    finally { TryDelete(home); }
+}
+
+static async Task CheckFailedOfficialDoesNotBorrowLocalQuota()
+{
+    var now = DateTimeOffset.Now;
+    var home = TemporaryHome();
+    try
+    {
+        var sessions = Path.Combine(home, ".codex", "sessions");
+        Directory.CreateDirectory(sessions);
+        File.WriteAllText(Path.Combine(sessions, "previous-account.jsonl"), CodexTokenCountLine(Iso(now),
+            "{\"used_percent\":0,\"window_minutes\":300}", "{\"used_percent\":0,\"window_minutes\":10080}"));
+        var configStore = new AppConfigStore(Path.Combine(home, "config.json"));
+        configStore.Save(new AppConfig { ClaudeProviderEnabled = false, CodexOfficialUsageEnabled = true });
+        var service = new CompositeUsageService(configStore, new LocalLogUsageService(home), new FailedOfficialFixtureService());
+        var snapshot = (await service.SnapshotsAsync(now)).Single();
+        Expect(snapshot.Percent == null && snapshot.Weekly?.PercentLeft == null && snapshot.Status == UsageStatus.Unknown,
+            "failed authenticated sync must not borrow100 from unverified previous-account local logs");
+        Expect(snapshot.Message?.Contains("Current quota is unknown") == true,
+            "unavailable current account quota should explain the unknown reading");
+    }
+    finally { TryDelete(home); }
+}
+
+sealed class FailedOfficialFixtureService : IOfficialUsageService
+{
+    public Task<OfficialUsageResult> SnapshotAsync(UsageProvider provider, DateTimeOffset now) =>
+        Task.FromResult(new OfficialUsageResult(null, "Synthetic authentication failure."));
+}
+
+sealed class QuotaFailureFixtureService : IUsageService
+{
+    private int _count;
+    public Task<IReadOnlyList<UsageSnapshot>> SnapshotsAsync(DateTimeOffset now)
+    {
+        _count++;
+        if (_count == 2) throw new IOException("fixture-private-detail");
+        return Task.FromResult<IReadOnlyList<UsageSnapshot>>([new UsageSnapshot
+        { Provider = UsageProvider.Codex, Status = UsageStatus.Ok, UpdatedAt = now,
+            Percent = _count == 1 ? 100 : 95, PrimaryWindowMinutes = 300, ResetAt = now.AddHours(1) }]);
+    }
 }
 
 sealed class FixtureHttpHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler

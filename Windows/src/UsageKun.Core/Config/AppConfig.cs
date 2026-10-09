@@ -19,7 +19,7 @@ public sealed class AppConfig
     public bool OnboardingCompleted { get; set; }
     public bool NotificationsEnabled { get; set; }
 
-    /// Claude plan for the local 5-hour estimate: "auto", "pro", "max_5x", or "max_20x".
+    /// Legacy plan preference retained for settings compatibility; Windows quota does not use token caps.
     public string ClaudePlanOverride { get; set; } = "auto";
 
     /// Providers to show. Unchecked providers are not fetched or displayed.

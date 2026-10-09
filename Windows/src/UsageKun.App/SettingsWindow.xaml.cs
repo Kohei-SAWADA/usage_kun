@@ -27,7 +27,7 @@ public partial class SettingsWindow : Window
         AntigravityUsageCheck.IsChecked = config.AntigravityUsageEnabled;
         DesktopWidgetCheck.IsChecked = config.DesktopWidgetEnabled;
         LaunchAtLoginCheck.IsChecked = config.LaunchAtLoginEnabled;
-        ConfigPathText.Text = $"usage_kun 0.4.2 · Windows\nSettings file: {new AppConfigStore().ConfigPath}";
+        ConfigPathText.Text = $"usage_kun 0.4.3 · Windows\nSettings file: {new AppConfigStore().ConfigPath}";
 
         foreach (var minutes in IntervalChoices)
         {
@@ -36,11 +36,6 @@ public partial class SettingsWindow : Window
         RefreshIntervalCombo.SelectedItem = IntervalChoices.Contains(config.RefreshIntervalMinutes)
             ? config.RefreshIntervalMinutes
             : 5;
-
-        ClaudePlanCombo.SelectedItem = ClaudePlanCombo.Items
-            .OfType<ComboBoxItem>()
-            .FirstOrDefault(item => (string)item.Tag == config.ClaudePlanOverride)
-            ?? ClaudePlanCombo.Items[0];
     }
 
     private void OnSaveClick(object sender, RoutedEventArgs e)
@@ -56,9 +51,6 @@ public partial class SettingsWindow : Window
         config.DesktopWidgetEnabled = DesktopWidgetCheck.IsChecked == true;
         config.LaunchAtLoginEnabled = LaunchAtLoginCheck.IsChecked == true;
         config.RefreshIntervalMinutes = RefreshIntervalCombo.SelectedItem is int minutes ? minutes : 5;
-        config.ClaudePlanOverride = ClaudePlanCombo.SelectedItem is ComboBoxItem item
-            ? (string)item.Tag
-            : "auto";
 
         _store.UpdateConfig(config);
         if (_store.LastErrorMessage is { } error)

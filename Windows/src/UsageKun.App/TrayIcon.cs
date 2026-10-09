@@ -66,9 +66,7 @@ internal sealed class TrayIcon : IDisposable
         var tooltipLines = new List<string> { _store.IsRefreshing ? "usage_kun · updating" : "usage_kun" };
         foreach (var entry in entries)
         {
-            var percent = entry.PercentLeft is { } left
-                ? $"{(int)Math.Round(left, MidpointRounding.AwayFromZero)}% left"
-                : entry.Status.Label();
+            var percent = TooltipPercent(entry.PercentLeft, entry.Status);
             tooltipLines.Add($"{entry.Mark} {percent}");
         }
 
@@ -110,10 +108,9 @@ internal sealed class TrayIcon : IDisposable
                 graphics.FillPath(trackBrush, trackPath);
             }
 
-            if (percentLeft is { } percent)
+            if (percentLeft is { } percent && double.IsFinite(percent) && percent is >= 0 and <= 100)
             {
-                var clamped = Math.Min(Math.Max(percent, 0), 100);
-                var fillHeight = (int)Math.Round(barHeight * clamped / 100);
+                var fillHeight = MeterFillHeight(percent, barHeight);
                 if (fillHeight >= 3)
                 {
                     var fillRect = new Rectangle(barLeft, barTop + (barHeight - fillHeight), barWidth, fillHeight);
@@ -144,6 +141,19 @@ internal sealed class TrayIcon : IDisposable
             // GetHicon allocates an unmanaged icon that Icon.FromHandle does not own.
             DestroyIcon(handle);
         }
+    }
+
+    private static string TooltipPercent(double? percentLeft, UsageStatus status) =>
+        percentLeft is { } left && double.IsFinite(left) && left is >= 0 and <= 100
+            ? $"{Format.Percent(left)} left"
+            : status == UsageStatus.Error ? status.Label() : "Unknown";
+
+    private static int MeterFillHeight(double percent, int barHeight)
+    {
+        // A tray icon has few pixels. Reserve a full bar for an exact 100% so
+        // a rounded pixel cannot imply that a partially used quota is full.
+        var height = (int)Math.Round(barHeight * percent / 100);
+        return percent < 100 ? Math.Min(height, barHeight - 1) : barHeight;
     }
 
     private static GraphicsPath RoundedRect(Rectangle bounds, int radius)

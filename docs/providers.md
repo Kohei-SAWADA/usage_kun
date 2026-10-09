@@ -1,5 +1,9 @@
 # providers
 
+For current Windows behavior, see [Windows quota accuracy](#windows-quota-accuracy-v043).
+The CLI and local-log sections using macOS paths describe the existing macOS
+implementation; Windows-specific sections call out its different behavior.
+
 ## Gemini in Antigravity (macOS)
 
 Enable **Settings → Providers → Gemini (Antigravity)** to read the running
@@ -96,7 +100,97 @@ Validation: `swift build`, `swift run UsageKunCoreCheck`, and the optional
 - ライブログがない場合は `~/.codex/sessions/**/*.jsonl` の `token_count` を fallback として読みます。
 - rate limit がまだ出ていない場合だけ、ローカルDBの token 集計を参考値として表示します。
 
+## Windows quota accuracy (v0.4.3)
+
+This section describes Windows only. The macOS provider implementations and
+their existing behavior are unchanged; the other platform-specific descriptions
+below remain applicable to macOS.
+
+### Remaining quota and windows
+
+Windows keeps quota values as decimal percentages until display. Codex
+`used_percent` is converted once to `100 - used_percent`; explicit
+`remaining_percent` or `percent_left` is already remaining quota. Claude OAuth
+`five_hour.utilization` and `seven_day.utilization` are percentages, including
+values below 1. Their units are not inferred from their magnitude. A value of
+0.95 in those OAuth fields means 0.95% used, not 95% used. Utilization fractions
+in response headers belong to a different schema and are not consumed by this
+source. Invalid or out-of-range percentages remain unknown rather than being
+clamped to a plausible endpoint.
+
+Reported durations determine window labels: 300 minutes is 5H, 10080 minutes
+is 1W, and other or unknown durations use LIMIT. A weekly primary window with
+no secondary window stays weekly; a secondary slot is not assumed to be weekly.
+Missing windows do not become 100%. A model-specific Codex limit cannot replace
+the General Codex quota. These distinctions agree with the separate window and
+bucket fields described in the [official Codex app-server documentation](https://developers.openai.com/codex/app-server/).
+usage_kun continues to read its existing local logs and opt-in usage endpoint;
+it does not launch app-server or a model request to obtain a new quota reading.
+
+The meter displays remaining quota to one decimal place when needed. Only an
+exact 100% reading displays 100% or completely fills the tray bar. For example,
+99.5% remaining stays 99.5%, while 5% used becomes 95% remaining. The tray uses
+the most constrained available window and does not treat an unknown reported
+window as a full allowance.
+
+### Local Codex freshness and failed reads
+
+Windows compares live SQLite and session JSONL event timestamps as introduced
+in v0.4.2. A record without a usable event timestamp is ineligible; file
+modification time does not substitute for the observation time. Records at least
+30 minutes old or more than 5 minutes in the future cannot supply current quota.
+An elapsed reset makes that window unknown until a new reading arrives.
+Rereading an old record does not refresh its timestamp or prove that quota reset.
+
+The previous Windows code replaced an expired local window with 100% remaining
+and a `fresh` reset label. A synthetic record with 95% remaining and a past reset
+reproduces that 100% result. Separately, the weekly path and UI rounded 99.5% to
+100%. v0.4.3 removes both paths. These fixtures establish code defects, not the
+cause of every discrepancy seen with a live account.
+
+Successful opt-in authenticated sync takes precedence. If it fails, current
+quota remains unknown even with recent local records; a historical event does
+not prove it belongs to the currently signed-in account. Local-only readings
+are last recorded limits and do not verify account switching or activity on
+other devices. A failed refresh does not preserve a previous
+percentage as a successful current reading. HTTP errors, missing fields, and
+invalid numbers do not indicate a full allowance.
+
+### Claude logs and the scope of each service
+
+Windows no longer derives Claude subscription remaining quota or reset times
+from estimated token caps, plan choices, or calibration. Local conversation
+logs still provide token counts and an API-equivalent cost estimate, clearly
+identified as estimates. They do not establish actual charges or subscription
+quota. Usable quota fields from opt-in official Claude sync are required for a
+Claude percentage. The macOS Claude estimate and calibration behavior described
+below is unchanged.
+
+Codex quotas obtained through a ChatGPT CLI sign-in measure Codex use. They are
+not ordinary ChatGPT chat limits, token-activity totals, credit balances, or API
+billing. usage_kun does not expose a separate ChatGPT chat-quota source. Gemini
+in Antigravity remains separate from Gemini API billing and the consumer app.
+Unavailable services are displayed as unknown rather than substituted with
+another provider's percentage.
+
+### Design references and validation limits
+
+The Windows review used [codex-usage-monitor](https://github.com/upstream-ray/codex-usage-monitor)
+(MIT), [AIUsageDock](https://github.com/GChavez0210/AIUsageDock) (MIT), and
+[trafficmonitor-ai-usage-plugin](https://github.com/bemaru/trafficmonitor-ai-usage-plugin)
+(Anti-996) as design references for unknown values, schema-specific units, and
+duration-based windows. No code was copied from these projects. This does not
+imply an official vendor integration or endorsement.
+
+Regression checks use synthetic data. No authenticated Windows account or
+physical Windows x64 tray/mouse comparison was available for this release.
+See the [v0.4.3 release notes](release-notes-v0.4.3.md) for validation scope and
+the [Windows guide](windows.md) for setup.
+
 ## Windows Codex quota (v0.4.2)
+
+This records the v0.4.2 change. The freshness, expiry, and display rules in
+[v0.4.3](#windows-quota-accuracy-v043) supersede its reset-expiry behavior.
 
 Windows now compares the newest valid General Codex rate-limit event from
 `%USERPROFILE%\.codex\logs_2.sqlite` with session `token_count` events under

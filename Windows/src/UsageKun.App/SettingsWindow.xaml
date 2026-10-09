@@ -38,8 +38,11 @@
         <GroupBox Header="Sync sources" Padding="8" Margin="0,10,0,0">
             <StackPanel>
                 <CheckBox x:Name="LocalLogCheck" Content="Local CLI logs (.claude / .codex)"/>
-                <CheckBox x:Name="ClaudeOfficialCheck" Content="Official Claude usage sync (opt-in)" Margin="0,6,0,0"/>
-                <CheckBox x:Name="CodexOfficialCheck" Content="Official Codex usage sync (opt-in)" Margin="0,6,0,0"/>
+                <CheckBox x:Name="ClaudeOfficialCheck" Content="Claude usage sync (opt-in)" Margin="0,6,0,0"/>
+                <TextBlock x:Name="ClaudeQuotaHelpText"
+                           Text="Local Claude logs show token totals. Enable Claude usage sync to read remaining quota. Unavailable quota stays unknown."
+                           FontSize="11" Foreground="Gray" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                <CheckBox x:Name="CodexOfficialCheck" Content="Codex usage sync (opt-in)" Margin="0,6,0,0"/>
                 <TextBlock Text="Uses existing Windows CLI sign-ins to read official usage. Tokens are never saved, refreshed, or logged. Sign in to the CLI first."
                            FontSize="11"
                            Foreground="Gray"
@@ -49,15 +52,6 @@
                 <TextBlock Text="Open Antigravity on Windows and sign in. Reads quota from its local service; temporary credentials are never saved or logged. Unavailable quota stays unknown."
                            FontSize="11" Foreground="Gray" TextWrapping="Wrap" Margin="0,6,0,0"/>
             </StackPanel>
-        </GroupBox>
-
-        <GroupBox Header="Claude plan (local estimate only)" Padding="8" Margin="0,10,0,0">
-            <ComboBox x:Name="ClaudePlanCombo">
-                <ComboBoxItem Content="Auto" Tag="auto"/>
-                <ComboBoxItem Content="Pro" Tag="pro"/>
-                <ComboBoxItem Content="Max 5x" Tag="max_5x"/>
-                <ComboBoxItem Content="Max 20x" Tag="max_20x"/>
-            </ComboBox>
         </GroupBox>
 
         <GroupBox Header="Behavior" Padding="8" Margin="0,10,0,0">

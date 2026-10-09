@@ -176,10 +176,7 @@ public sealed record UsageSnapshot
         }
     }
 
-    public string PercentDisplay =>
-        Percent is { } percent
-            ? $"{(int)Math.Round(percent, MidpointRounding.AwayFromZero)}%"
-            : "--%";
+    public string PercentDisplay => Format.Percent(Percent);
 
     private string FormatMetric(double value)
     {
@@ -190,7 +187,7 @@ public sealed record UsageSnapshot
 
         if (Unit == "%")
         {
-            return $"{(int)Math.Round(value, MidpointRounding.AwayFromZero)}%";
+            return Format.Percent(value);
         }
 
         var number = Format.Compact(value);
@@ -206,6 +203,19 @@ public sealed record UsageSnapshot
 
 public static class Format
 {
+    public static bool IsValidPercent(double value) => double.IsFinite(value) && value is >= 0 and <= 100;
+
+    /// Preserve a reported decimal without turning an almost-full quota into 100%.
+    /// Invalid or unavailable percentages remain unknown on every Windows surface.
+    public static string Percent(double? value)
+    {
+        if (value is not { } percent || !IsValidPercent(percent)) return "--%";
+        if (percent == 100) return "100%";
+        var rounded = Math.Round(percent, 1, MidpointRounding.AwayFromZero);
+        if (rounded == 0 && percent > 0) return "<0.1%";
+        return Math.Min(rounded, 99.9).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+    }
+
     public static string Compact(double value)
     {
         if (Math.Abs(value) >= 1_000_000)
