@@ -9,7 +9,7 @@
 
 Keep remaining quota and reset times in view from your macOS menu bar or Windows x64 tray. Optional Gemini support reads Antigravity IDE quota, not Gemini app usage or API billing.
 
-**[Download for macOS (Apple Silicon)](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-macOS.zip)** · **[Download for Windows x64](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.3/UsageKun-Windows-x64.zip)** · [Setup guide](#quick-start) · [GIF demo](#demo)
+**[Download for macOS (Apple Silicon)](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-macOS.zip)** · **[Download for Windows x64](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-Windows-x64.zip)** · [Setup guide](#quick-start) · [GIF demo](#demo)
 
 macOS 14+; Windows 10/11 on Intel/AMD x64. Windows ARM is unsupported. The macOS app is ad-hoc signed and not notarized; the Windows app is unsigned.
 
@@ -47,13 +47,13 @@ This project is not affiliated with, endorsed by, or sponsored by OpenAI, Anthro
 
 ## Downloads
 
-The latest Windows version is [v0.4.3](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.3). macOS remains [v0.4.2](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.2), with its existing download unchanged. Windows support is limited to Intel / AMD PCs (x64). Windows ARM, including Windows on Apple Silicon Macs, is no longer supported. macOS support, including Apple Silicon, is unchanged. Gemini (Antigravity) is available on macOS since v0.4.0 and Windows since v0.4.1.
+The current macOS and Windows version is [v0.4.4](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.4), with login startup that preserves existing off choices. The Windows v0.4.3 quota accuracy fixes remain included. Windows supports Intel / AMD x64 PCs; macOS supports Apple Silicon. Windows ARM remains unsupported.
 
 Choose the current download for your platform:
 
 | Platform | ZIP |
 | --- | --- |
-| macOS (Apple Silicon) | [UsageKun-macOS.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-macOS.zip) |
+| macOS (Apple Silicon) | [UsageKun-macOS.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-macOS.zip) |
 | Windows (Intel / AMD, x64) | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) |
 
 Windows v0.4.3 keeps expired, stale, invalid, and unavailable quota unknown instead of assuming 100%. Claude local token totals do not establish subscription quota; enable opt-in authenticated usage sync for a reported quota. Codex quota is separate from ordinary ChatGPT chat limits and API billing. [Windows accuracy changes](docs/release-notes-v0.4.3.md).

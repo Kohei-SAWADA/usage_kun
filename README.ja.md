@@ -9,7 +9,7 @@
 
 macOSのメニューバーやWindows x64のトレイで、残量とリセット時刻を確認できます。任意のGemini対応はAntigravity IDEの利用枠を読み取るもので、Geminiアプリの使用量やAPI課金ではありません。
 
-**[macOS版をダウンロード（Apple Silicon）](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-macOS.zip)** · **[Windows x64版をダウンロード](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.3/UsageKun-Windows-x64.zip)** · [導入手順](#すぐ試す) · [GIFデモ](#デモ)
+**[macOS版をダウンロード（Apple Silicon）](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-macOS.zip)** · **[Windows x64版をダウンロード](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-Windows-x64.zip)** · [導入手順](#すぐ試す) · [GIFデモ](#デモ)
 
 macOS 14以降、Windows 10/11のIntel/AMD x64に対応。Windows ARMは非対応です。macOS版はアドホック署名・未公証、Windows版は未署名です。
 
@@ -45,13 +45,13 @@ usage-kun は、Codex、Claude、Gemini（Antigravity）の使用量を作業中
 
 ## ダウンロード
 
-Windows の最新版は [v0.4.3](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.3) です。macOS は既存の [v0.4.2](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.2) をそのまま配布し、ファイルは変更していません。Windows の対応対象は Intel / AMD（x64）の PC のみです。Apple Silicon の Mac 上で動く Windows を含め、Windows ARM の対応は終了しました。Apple Silicon を含む macOS の対応は従来どおりです。Gemini（Antigravity）対応は macOS では v0.4.0 から、Windows では v0.4.1 から利用できます。
+macOS・Windows の最新版は [v0.4.4](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.4) です。ログイン時の自動起動を設定でき、既存のオフ選択を保持します。Windows v0.4.3 の残量精度修正も維持しています。Windows は Intel / AMD x64、macOS は Apple Silicon に対応し、Windows ARM は未対応です。
 
 お使いの環境に合う最新版の ZIP を、下のリンクから直接ダウンロードできます。
 
 | 環境 | ZIP |
 | --- | --- |
-| macOS（Apple Silicon） | [UsageKun-macOS.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-macOS.zip) |
+| macOS（Apple Silicon） | [UsageKun-macOS.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-macOS.zip) |
 | Windows（Intel / AMD、x64） | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) |
 
 Windows v0.4.3 では、期限切れ・古い記録・不正な値・取得できない残量を 100% とせず、不明にします。Claude のローカルトークン数だけでは契約の残量を求められないため、取得済みの利用枠を表示するには任意の認証済み使用量同期を有効にしてください。Codex の利用枠は通常の ChatGPT チャット制限や API 課金量とは別です。[Windows の修正内容](docs/release-notes-v0.4.3.md)。
