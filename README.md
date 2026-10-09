@@ -9,19 +9,15 @@
 
 Keep remaining quota and reset times in view from your macOS menu bar or Windows x64 tray. Optional Gemini support reads Antigravity IDE quota, not Gemini app usage or API billing.
 
-**[Download for macOS (Apple Silicon)](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-macOS.zip)** · **[Download for Windows x64](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-Windows-x64.zip)** · [Setup guide](#quick-start) · [Demo](#demo)
+**[Download for macOS (Apple Silicon)](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-macOS.zip)** · **[Download for Windows x64](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-Windows-x64.zip)** · [Setup guide](#quick-start) · [GIF demo](#demo)
 
 macOS 14+; Windows 10/11 on Intel/AMD x64. Windows ARM is unsupported. The macOS app is ad-hoc signed and not notarized; the Windows app is unsigned.
 
 ## Demo
 
-[Watch the real macOS demo (MP4, about 24 seconds, silent)](assets/promo/usage-kun-demo-v2.mp4)
-
 ![Actual usage-kun menu-bar popover, desktop meter, and provider controls on macOS](assets/promo/usage-kun-demo-v2.gif)
 
 Edited from real recordings on this Mac: the menu-bar popover's Usage and Settings tabs, desktop-meter readings, and provider display controls. Displayed values can include a local-log estimate, including Claude's empty-log fallback. Antigravity was installed but not running during the check, so Gemini quota fetching is not shown; no IDE launch, sign-in, or token setup was performed. Windows interactions are not shown.
-
-Previous desktop-meter demo: [MP4](assets/promo/usage-kun-demo.mp4) · [GIF](assets/promo/usage-kun-demo.gif).
 
 ## At a glance
 

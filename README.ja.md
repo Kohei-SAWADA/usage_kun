@@ -9,19 +9,15 @@
 
 macOSのメニューバーやWindows x64のトレイで、残量とリセット時刻を確認できます。任意のGemini対応はAntigravity IDEの利用枠を読み取るもので、Geminiアプリの使用量やAPI課金ではありません。
 
-**[macOS版をダウンロード（Apple Silicon）](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-macOS.zip)** · **[Windows x64版をダウンロード](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-Windows-x64.zip)** · [導入手順](#すぐ試す) · [デモ](#デモ)
+**[macOS版をダウンロード（Apple Silicon）](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-macOS.zip)** · **[Windows x64版をダウンロード](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.2/UsageKun-Windows-x64.zip)** · [導入手順](#すぐ試す) · [GIFデモ](#デモ)
 
 macOS 14以降、Windows 10/11のIntel/AMD x64に対応。Windows ARMは非対応です。macOS版はアドホック署名・未公証、Windows版は未署名です。
 
 ## デモ
 
-[Macでの実操作デモを見る（MP4・約24秒・無音）](assets/promo/usage-kun-demo-v2.mp4)
-
 ![macOS上のusage-kunのメニューバー小窓・デスクトップメーター・サービス表示切替](assets/promo/usage-kun-demo-v2.gif)
 
 このMacで実際に収録した映像を編集し、メニューバー小窓のUsage・Settingsタブ、デスクトップメーターの実表示、サービス表示切替を紹介しています。表示値にはClaudeの空ログ時の代替表示など、ローカルログの推定が含まれる場合があります。確認時にはAntigravityがインストール済みでも起動していなかったため、Geminiの残量取得は収録していません。IDEの起動・ログイン・トークン設定は行っていません。Windowsの操作も映像に含みません。
-
-以前のデスクトップメーターのデモ：[MP4](assets/promo/usage-kun-demo.mp4)・[GIF](assets/promo/usage-kun-demo.gif)。
 
 ## 主な機能
 
