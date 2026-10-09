@@ -197,7 +197,7 @@ public sealed class CLIOAuthUsageService : IOfficialUsageService
         var primary = CodexWindow(JsonValue.First(container, "primary", "primary_window", "five_hour"), now);
         var secondaryValue = JsonValue.First(container, "secondary", "secondary_window", "weekly");
         var secondary = CodexWindow(secondaryValue, now);
-        var unknownSecondary = secondaryValue.ValueKind != JsonValueKind.Undefined && secondary == null;
+        var unknownSecondary = secondaryValue.ValueKind is not (JsonValueKind.Undefined or JsonValueKind.Null) && secondary == null;
         // Two contradictory readings for the same duration do not identify
         // distinct quota windows. Do not silently discard the stricter one.
         if (primary?.WindowMinutes is { } duration && secondary?.WindowMinutes == duration)

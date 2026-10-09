@@ -81,6 +81,10 @@ internal static class OAuthQuotaChecks
         var weeklySnapshot = CLIOAuthUsageService.MakeSnapshot(UsageProvider.Codex, weeklyOnly!, Now, "synthetic", "synthetic");
         Assert(weeklySnapshot.PrimaryWindowLabel == "1W" && weeklySnapshot.Weekly == null,
             "weekly-only quota must not invent a 5h window or duplicate weekly quota");
+        var weeklyOnlyNull = CLIOAuthUsageService.ParseCodexWhamUsage("""{"rate_limit":{"primary_window":{"used_percent":5,"limit_window_seconds":604800},"secondary_window":null}}""", Now);
+        var weeklyNullSnapshot = CLIOAuthUsageService.MakeSnapshot(UsageProvider.Codex, weeklyOnlyNull!, Now, "synthetic", "synthetic");
+        Assert(weeklyNullSnapshot.Status == UsageStatus.Ok && weeklyNullSnapshot.Weekly == null && weeklyNullSnapshot.PrimaryWindowLabel == "1W",
+            "an explicitly absent secondary window on a weekly-only plan must stay distinct from malformed quota");
         var secondaryOnly = CLIOAuthUsageService.ParseCodexWhamUsage("""{"rate_limits":{"primary":null,"secondary":{"percent_left":95.1,"window_minutes":10080}}}""", Now);
         Assert(secondaryOnly?.Primary.WindowMinutes == 10080 && secondaryOnly.Secondary == null,
             "a missing primary window must not become 100% remaining");
