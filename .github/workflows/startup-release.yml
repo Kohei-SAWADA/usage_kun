@@ -1,0 +1,77 @@
+name: Login startup release
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - Packaging/Info.plist
+      - .github/workflows/startup-release.yml
+permissions:
+  contents: read
+jobs:
+  mac:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift build --jobs 1
+      - run: swift run --jobs 1 UsageKunCoreCheck
+      - run: ./Scripts/check-login.sh
+      - run: ./Scripts/package_release_zip.sh
+      - run: shasum -a 256 UsageKun-macOS.zip > UsageKun-macOS.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: startup-macos
+          path: |
+            UsageKun-macOS.zip
+            UsageKun-macOS.zip.sha256
+          if-no-files-found: error
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet build Windows/UsageKun.Windows.sln -c Release
+      - run: dotnet run --project Windows/tests/UsageKun.Core.Check -c Release --no-build
+      - run: dotnet run --project Windows/tests/UsageKun.UI.Check -c Release --no-build
+      - name: Check bundled x64 runtime
+        shell: pwsh
+        run: |
+          $checkDir = Join-Path $env:RUNNER_TEMP 'startup-core-x64'
+          dotnet publish Windows/tests/UsageKun.Core.Check -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o $checkDir
+          if ($LASTEXITCODE -ne 0) { throw 'Bundled check publish failed.' }
+          & (Join-Path $checkDir 'UsageKun.Core.Check.exe')
+          if ($LASTEXITCODE -ne 0) { throw 'Bundled checks failed.' }
+      - run: ./Scripts/package_windows.ps1 -Runtime win-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: startup-windows
+          path: |
+            UsageKun-Windows-x64.zip
+            UsageKun-Windows-x64.zip.sha256
+          if-no-files-found: error
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [mac, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: startup-*
+          merge-multiple: true
+          path: dist
+      - name: Verify and publish only a new version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum -c UsageKun-macOS.zip.sha256
+          sha256sum -c UsageKun-Windows-x64.zip.sha256
+          cat *.sha256 > SHA256SUMS.txt
+          cd ..
+          if gh release view v0.4.4 >/dev/null 2>&1; then exit 0; fi
+          gh release create v0.4.4 dist/* --target "$GITHUB_SHA" --title 'usage kun 0.4.4 — Login startup' --notes-file docs/release-notes-v0.4.4.md --latest

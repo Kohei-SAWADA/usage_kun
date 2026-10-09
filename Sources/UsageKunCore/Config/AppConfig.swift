@@ -100,6 +100,8 @@ public final class AppConfigStore {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
     }
 
+    public var hasSavedConfig: Bool { FileManager.default.fileExists(atPath: configURL.path) }
+
     public func load() -> AppConfig {
         guard let data = try? Data(contentsOf: configURL) else {
             return AppConfig()

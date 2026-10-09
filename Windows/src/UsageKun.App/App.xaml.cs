@@ -27,9 +27,8 @@ public partial class App : Application
 
         var configStore = new AppConfigStore();
         _store = new UsageStore(new CompositeUsageService(configStore), configStore);
+        LaunchAtLogin.Initialize(_store.Config, configStore);
         _store.Changed += OnStoreChanged;
-
-        LaunchAtLogin.Apply(_store.Config.LaunchAtLoginEnabled);
 
         _trayIcon = new TrayIcon(
             _store,
@@ -59,7 +58,7 @@ public partial class App : Application
     {
         ApplyRefreshInterval();
         SyncWidgetVisibility();
-        LaunchAtLogin.Apply(_store!.Config.LaunchAtLoginEnabled);
+
     }
 
     private void ApplyRefreshInterval()
