@@ -918,6 +918,27 @@ static async Task CheckFailedOfficialDoesNotBorrowLocalQuota()
     finally { TryDelete(home); }
 }
 
+
+static void CheckLoginStartup()
+{
+    Expect(LoginStartupPolicy.Decide(false, false, true, false, false, false) == LoginStartupAction.Register, "first install registration");
+    Expect(LoginStartupPolicy.Decide(true, true, true, true, false, false) == LoginStartupAction.None, "no repeated registration");
+    Expect(LoginStartupPolicy.Decide(true, true, true, false, false, false) == LoginStartupAction.None, "OS deletion respected");
+    Expect(LoginStartupPolicy.Decide(false, true, false, false, false, false) == LoginStartupAction.None, "legacy off respected");
+    Expect(LoginStartupPolicy.Decide(false, true, true, false, false, false) == LoginStartupAction.None, "legacy OS off respected");
+    Expect(LoginStartupPolicy.Decide(true, true, true, true, true, true) == LoginStartupAction.None, "StartupApproved off respected");
+    Expect(LoginStartupPolicy.Decide(true, true, true, true, false, true) == LoginStartupAction.Relocate, "moved enabled entry repaired");
+    Expect(LoginStartupPolicy.Decide(true, true, false, true, false, false, true) == LoginStartupAction.Remove, "explicit off removes entry");
+    Expect(LoginStartupPolicy.Decide(true, true, true, false, true, false, true) == LoginStartupAction.Register, "explicit on requests entry but does not bypass OS block");
+    var path = Path.Combine(Path.GetTempPath(), $"usage-kun-startup-{Guid.NewGuid()}.json");
+    try {
+        var store = new AppConfigStore(path);
+        store.Save(new AppConfig { LaunchAtLoginEnabled = false, LaunchAtLoginInitialized = true });
+        var reloaded = new AppConfigStore(path).Load();
+        Expect(!reloaded.LaunchAtLoginEnabled && reloaded.LaunchAtLoginInitialized, "explicit off and initialization persist across store reconstruction");
+    } finally { File.Delete(path); }
+}
+
 sealed class FailedOfficialFixtureService : IOfficialUsageService
 {
     public Task<OfficialUsageResult> SnapshotAsync(UsageProvider provider, DateTimeOffset now) =>
@@ -1005,24 +1026,4 @@ sealed class RecoveringFixtureService : IUsageService
             Provider = UsageProvider.Codex, Status = UsageStatus.Ok, UpdatedAt = now, Percent = 70
         }]);
     }
-}
-
-static void CheckLoginStartup()
-{
-    Expect(LoginStartupPolicy.Decide(false, false, true, false, false, false) == LoginStartupAction.Register, "first install registration");
-    Expect(LoginStartupPolicy.Decide(true, true, true, true, false, false) == LoginStartupAction.None, "no repeated registration");
-    Expect(LoginStartupPolicy.Decide(true, true, true, false, false, false) == LoginStartupAction.None, "OS deletion respected");
-    Expect(LoginStartupPolicy.Decide(false, true, false, false, false, false) == LoginStartupAction.None, "legacy off respected");
-    Expect(LoginStartupPolicy.Decide(false, true, true, false, false, false) == LoginStartupAction.None, "legacy OS off respected");
-    Expect(LoginStartupPolicy.Decide(true, true, true, true, true, true) == LoginStartupAction.None, "StartupApproved off respected");
-    Expect(LoginStartupPolicy.Decide(true, true, true, true, false, true) == LoginStartupAction.Relocate, "moved enabled entry repaired");
-    Expect(LoginStartupPolicy.Decide(true, true, false, true, false, false, true) == LoginStartupAction.Remove, "explicit off removes entry");
-    Expect(LoginStartupPolicy.Decide(true, true, true, false, true, false, true) == LoginStartupAction.Register, "explicit on requests entry but does not bypass OS block");
-    var path = Path.Combine(Path.GetTempPath(), $"usage-kun-startup-{Guid.NewGuid()}.json");
-    try {
-        var store = new AppConfigStore(path);
-        store.Save(new AppConfig { LaunchAtLoginEnabled = false, LaunchAtLoginInitialized = true });
-        var reloaded = new AppConfigStore(path).Load();
-        Expect(!reloaded.LaunchAtLoginEnabled && reloaded.LaunchAtLoginInitialized, "explicit off and initialization persist across store reconstruction");
-    } finally { File.Delete(path); }
 }
