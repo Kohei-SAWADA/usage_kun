@@ -5,6 +5,12 @@ public interface IUsageService
     Task<IReadOnlyList<UsageSnapshot>> SnapshotsAsync(DateTimeOffset now);
 }
 
+public interface ILocalLogUsageService : IUsageService
+{
+    string ClaudePlanOverride { get; set; }
+    Task<IReadOnlyList<UsageSnapshot>> SnapshotsAsync(DateTimeOffset now, bool codexEnabled, bool claudeEnabled);
+}
+
 /// One provider line for the tray tooltip/icon; mirrors MenuBarEntry on macOS.
 public sealed record TrayEntry(string Mark, double? PercentLeft, UsageStatus Status);
 
@@ -44,16 +50,16 @@ public sealed class MockUsageService : IUsageService
     }
 }
 
-/// Selects only enabled providers and opt-in sources. Failed authenticated reads
+/// Selects only enabled providers and enabled sync sources. Failed authenticated reads
 /// leave current quota unknown; historical local activity is not account proof.
 public sealed class CompositeUsageService : IUsageService
 {
     private readonly AppConfigStore _configStore;
-    private readonly LocalLogUsageService _localLogService;
+    private readonly ILocalLogUsageService _localLogService;
     private readonly IOfficialUsageService _officialService;
     private readonly IAntigravityUsageService _antigravityService;
 
-    public CompositeUsageService(AppConfigStore configStore, LocalLogUsageService? localLogService = null,
+    public CompositeUsageService(AppConfigStore configStore, ILocalLogUsageService? localLogService = null,
         IOfficialUsageService? officialService = null, IAntigravityUsageService? antigravityService = null)
     {
         _configStore = configStore;
@@ -65,6 +71,8 @@ public sealed class CompositeUsageService : IUsageService
     public async Task<IReadOnlyList<UsageSnapshot>> SnapshotsAsync(DateTimeOffset now)
     {
         var config = _configStore.Load();
+        // Guard every entry path before local logs, credential discovery, or HTTP.
+        if (!config.SyncApproved) return ApprovalRequiredSnapshots(config, now);
         _localLogService.ClaudePlanOverride = config.ClaudePlanOverride;
         var local = config.LocalLogEnabled
             ? await _localLogService.SnapshotsAsync(now, config.CodexProviderEnabled, config.ClaudeProviderEnabled)
@@ -116,6 +124,17 @@ public sealed class CompositeUsageService : IUsageService
             };
         }
     }
+
+    internal static IReadOnlyList<UsageSnapshot> ApprovalRequiredSnapshots(AppConfig config, DateTimeOffset now) =>
+        new[] { UsageProvider.Codex, UsageProvider.Claude, UsageProvider.Antigravity }
+            .Where(config.IsProviderEnabled).Select(provider => new UsageSnapshot
+            {
+                Provider = provider, Status = UsageStatus.Unknown, UpdatedAt = now,
+                Source = "not started", Unit = "%", MetricTitle = "Usage left",
+                SecondaryTitle = "Sync", SecondaryValue = "Not started",
+                Message = "Sync has not started. Review sources in Settings, then choose Start sync. " +
+                    "No CLI logs or sign-in credentials are read before you start."
+            }).ToArray();
 }
 
 /// Display state the UI subscribes to; mirrors UsageStore on macOS.
@@ -141,6 +160,8 @@ public sealed class UsageStore
         _service = service;
         _configStore = configStore ?? new AppConfigStore();
         Config = _configStore.Load();
+        if (!Config.SyncApproved)
+            Snapshots = CompositeUsageService.ApprovalRequiredSnapshots(Config, DateTimeOffset.Now);
     }
 
     public IReadOnlyList<TrayEntry> TrayEntries => TrayEntriesFor(Snapshots);
@@ -195,6 +216,7 @@ public sealed class UsageStore
     {
         get
         {
+            if (!Config.SyncApproved) return null;
             DateTimeOffset? latest = null;
             foreach (var snapshot in Snapshots)
             {
@@ -210,6 +232,7 @@ public sealed class UsageStore
 
     public async Task RefreshAsync()
     {
+        if (!HasSyncApproval()) return;
         if (IsRefreshing)
         {
             _refreshPending = true;
@@ -223,6 +246,7 @@ public sealed class UsageStore
             do
             {
                 _refreshPending = false;
+                if (!HasSyncApproval()) break;
                 var revision = _configRevision;
                 try
                 {
@@ -255,6 +279,19 @@ public sealed class UsageStore
             IsRefreshing = false;
             Changed?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    private bool HasSyncApproval()
+    {
+        // Re-read the persisted approval so damaged or removed settings cannot
+        // retain an in-memory authorization for a timer or direct service caller.
+        if (Config.SyncApproved && _configStore.Load().SyncApproved) return true;
+        _configRevision++;
+        Config = Config.Clone();
+        Config.SyncApproved = false;
+        Snapshots = CompositeUsageService.ApprovalRequiredSnapshots(Config, DateTimeOffset.Now);
+        Changed?.Invoke(this, EventArgs.Empty);
+        return false;
     }
 
     public static UsageSnapshot ValidateForDisplay(UsageSnapshot snapshot, DateTimeOffset now)
@@ -291,11 +328,13 @@ public sealed class UsageStore
     }
 
     /// Windows only: persists the floating-widget position after a drag.
-    /// Unlike UpdateConfig this neither refreshes nor raises Changed, so a
-    /// drag never kicks off a log rescan.
+    /// A normal drag neither refreshes nor raises Changed. Revoked approval
+    /// updates the paused display without kicking off a log rescan.
     public void SaveWidgetPosition(double x, double y)
     {
         var config = Config.Clone();
+        config.SyncApproved = config.SyncApproved && _configStore.Load().SyncApproved;
+        var approvalRevoked = Config.SyncApproved && !config.SyncApproved;
         config.WidgetPositionX = x;
         config.WidgetPositionY = y;
         Config = config;
@@ -308,25 +347,50 @@ public sealed class UsageStore
         {
             // Position persistence is best-effort.
         }
+        if (approvalRevoked)
+        {
+            _configRevision++;
+            Snapshots = CompositeUsageService.ApprovalRequiredSnapshots(config, DateTimeOffset.Now);
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
     }
 
-    public void UpdateConfig(AppConfig newConfig)
+    public void UpdateConfig(AppConfig newConfig) => SaveConfig(newConfig, approveSync: false);
+
+    /// Only the explicit Start sync button calls this. A failed save grants no approval.
+    public bool StartSync(AppConfig newConfig) => SaveConfig(newConfig, approveSync: true);
+
+    private bool SaveConfig(AppConfig newConfig, bool approveSync)
     {
-        _configRevision++;
-        Config = newConfig.Clone();
-        Snapshots = Snapshots.Where(snapshot => newConfig.IsProviderEnabled(snapshot.Provider)).ToArray();
+        var config = newConfig.Clone();
+        // Ordinary settings changes can preserve or revoke approval, never grant it.
+        config.SyncApproved = approveSync || (Config.SyncApproved && config.SyncApproved && _configStore.Load().SyncApproved);
 
         try
         {
-            _configStore.Save(newConfig);
+            if (approveSync) _configStore.SaveWithSyncApproval(config);
+            else _configStore.Save(config);
             LastErrorMessage = null;
         }
         catch
         {
+            _configStore.SuspendSyncApproval();
+            config.SyncApproved = false;
+            Config = config;
+            _configRevision++;
+            Snapshots = CompositeUsageService.ApprovalRequiredSnapshots(config, DateTimeOffset.Now);
             LastErrorMessage = "Failed to save settings.";
+            Changed?.Invoke(this, EventArgs.Empty);
+            return false;
         }
 
+        _configRevision++;
+        Config = config;
+        Snapshots = config.SyncApproved
+            ? Snapshots.Where(snapshot => config.IsProviderEnabled(snapshot.Provider)).ToArray()
+            : CompositeUsageService.ApprovalRequiredSnapshots(config, DateTimeOffset.Now);
         Changed?.Invoke(this, EventArgs.Empty);
-        _ = RefreshAsync();
+        if (config.SyncApproved) _ = RefreshAsync();
+        return true;
     }
 }

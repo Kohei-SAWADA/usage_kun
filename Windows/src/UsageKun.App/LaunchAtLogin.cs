@@ -25,6 +25,7 @@ internal static class LaunchAtLogin
         if (!initialized)
         {
             // Persist before registering. A failed save never changes OS startup.
+            config.SyncApproved = config.SyncApproved && store.Load().SyncApproved;
             config.LaunchAtLoginInitialized = true;
             try { store.Save(config); }
             catch { LastError = "Could not save startup preference. No login item was changed."; return; }

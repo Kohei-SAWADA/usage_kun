@@ -9,7 +9,7 @@
 
 macOSのメニューバーやWindows x64のトレイで、残量とリセット時刻を確認できます。任意のGemini対応はAntigravity IDEの利用枠を読み取るもので、Geminiアプリの使用量やAPI課金ではありません。
 
-**[macOS版をダウンロード（Apple Silicon）](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-macOS.zip)** · **[Windows x64版をダウンロード](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-Windows-x64.zip)** · [導入手順](#すぐ試す) · [GIFデモ](#デモ)
+**[macOS版をダウンロード（Apple Silicon）](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-macOS.zip)** · **[Windows x64版をダウンロード](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.7/UsageKun-Windows-x64.zip)** · [導入手順](#すぐ試す) · [GIFデモ](#デモ)
 
 macOS 14以降、Windows 10/11のIntel/AMD x64に対応。Windows ARMは非対応です。macOS版はアドホック署名・未公証、Windows版は未署名です。
 
@@ -39,26 +39,28 @@ macOS 14以降、Windows 10/11のIntel/AMD x64に対応。Windows ARMは非対�
 
 usage-kun は、Codex、Claude、Gemini（Antigravity）の使用量を作業中にすぐ確認できる、プライバシーを重視した小さな常駐アプリです。macOS ではメニューバー、Windows ではシステムトレイとデスクトップのメーターから確認できます。Gemini の表示は設定から有効にできます。
 
-これは個人用の小さなユーティリティとして作っています。大きな分析ダッシュボードではなく、作業中に一瞬見るための使用量メーターです。初期状態ではローカル CLI ログを読み、必要な場合だけ Claude Code / Codex CLI の既存のサインイン状態を読み取り専用で再利用し、公式の残量を取得します。Codex は実際の制限期間に合わせて 5 時間・1 週間などを表示します。このアプリは認証トークンを保存・更新・ログ出力しません。
+これは個人用の小さなユーティリティとして作っています。大きな分析ダッシュボードではなく、作業中に一瞬見るための使用量メーターです。macOS は初期状態でローカル CLI ログを読みます。Windows 0.4.7 は Start sync で明示的に承認を保存した後に読み出しを開始します。必要な場合だけ Claude Code / Codex CLI の既存のサインイン状態を読み取り専用で再利用し、公式の残量を取得します。Codex は実際の制限期間に合わせて 5 時間・1 週間などを表示します。このアプリは認証トークンを保存・更新・ログ出力しません。
 
 このプロジェクトは OpenAI、Anthropic、その他 provider の公式アプリではありません。各社による承認・提携・提供を受けたものでもありません。
 
 ## ダウンロード
 
-macOS・Windows の最新版は [v0.4.4](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.4) です。ログイン時の自動起動を設定でき、既存のオフ選択を保持します。Windows v0.4.3 の残量精度修正も維持しています。Windows は Intel / AMD x64、macOS は Apple Silicon に対応し、Windows ARM は未対応です。
+Windows の最新版は [v0.4.7](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.7)（2026-10-11）です。macOS 版は [v0.4.4](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.4) のままです。ログイン時の自動起動を設定でき、既存のオフ選択を保持します。Windows v0.4.3 の残量精度修正も維持しています。Windows は Intel / AMD x64、macOS は Apple Silicon に対応し、Windows ARM は未対応です。
 
 お使いの環境に合う最新版の ZIP を、下のリンクから直接ダウンロードできます。
 
 | 環境 | ZIP |
 | --- | --- |
 | macOS（Apple Silicon） | [UsageKun-macOS.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-macOS.zip) |
-| Windows（Intel / AMD、x64） | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) |
+| Windows（Intel / AMD、x64） | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.7/UsageKun-Windows-x64.zip) |
 
 Windows v0.4.3 では、期限切れ・古い記録・不正な値・取得できない残量を 100% とせず、不明にします。Claude のローカルトークン数だけでは契約の残量を求められないため、取得済みの利用枠を表示するには任意の認証済み使用量同期を有効にしてください。Codex の利用枠は通常の ChatGPT チャット制限や API 課金量とは別です。[Windows の修正内容](docs/release-notes-v0.4.3.md)。
 
 Windows 版は .NET ランタイムを同梱しているため、追加の .NET インストールやビルドは不要です。GitHub の **Code > Download ZIP** やリリース欄の **Source code** は開発用ソースなので、アプリを使う場合は上記の ZIP を選んでください。
 
 導入手順: [Windows](#windows-版をインストール) / [macOS](#release-zip-からインストール) / [Gemini を有効にする](#geminiantigravityを有効にする)。Windows の詳細は [Windows ガイド](docs/windows.md)を参照してください。
+
+Windows **0.4.7** は最新ソースから再ビルドし、Windows 上でチェック済みです。[v0.4.7 のリリース](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.7)に対応する Windows ソース ZIP、ソース入力のハッシュ、配布 ZIP のチェックサム、ビルド記録をまとめています。[ビルド情報](docs/windows-build-v0.4.7.json)も参照できます。初期チェックがオンでも、設定で **Start sync** を選び承認を保存するまで、使用量ソース・認証情報の読み出しや通信は始まりません。**Save** だけでは同期を承認しません。macOS の配布物は v0.4.4 のままです。詳細は [Windows ガイド](docs/windows.md#current-windows-release)を参照してください。
 
 ## スクリーンショット
 
@@ -118,7 +120,7 @@ usage-kun は、作業画面の邪魔をせずに常に見えることを意識�
 
 以下は macOS 版の手順です。
 
-1. [macOS v0.4.2 のリリース](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.2) から `UsageKun-macOS.zip` を download します。
+1. [macOS v0.4.4 のリリース](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.4) から `UsageKun-macOS.zip` を download します。
 2. 展開して `UsageKun.app` を `/Applications` など好きな場所に移動します。
 3. `UsageKun.app` を開きます。
 4. 公式残量を使う場合は、この Mac 上の Claude Code / Codex CLI でサインインし、**Settings > Official usage** の **Claude official usage** / **Codex official usage** を有効にします。Gemini は[以下の手順](#geminiantigravityを有効にする)で設定してください。
@@ -150,11 +152,11 @@ download した binary をそもそも信頼したくない場合は、下記の
 ### Windows 版をインストール
 
 1. Windows の **設定 > システム > バージョン情報 > システムの種類** で、Intel / AMD の x64 ベースのプロセッサであることを確認します。Apple Silicon の Mac 上で動く Windows を含め、Windows ARM は対象外です。
-2. 上の[ダウンロード表](#ダウンロード)から `UsageKun-Windows-x64.zip` をダウンロードします。リリースページから選ぶ場合は **Assets** 内にあります。
+2. 上の[ダウンロード表](#ダウンロード)から `UsageKun-Windows-x64.zip` をダウンロードします。リリースページでは v0.4.7 の **Assets** 内にあります。
 3. ZIP を右クリックして **すべて展開** を選び、任意のフォルダへ展開します。
 4. 展開先の `UsageKun.exe` を起動します。ZIP 内から直接実行せず、展開したファイルは同じフォルダに保存してください。インストーラーや追加の .NET インストールは不要です。
 5. デスクトップに使用量メーター、タスクバー右側の通知領域にアイコンが表示されます。見当たらない場合は、隠れているアイコンの一覧も確認してください。トレイアイコンを右クリックして **Settings...** を開き、**Providers** で表示したいサービスを選びます。
-6. Claude / Codex の公式残量を使う場合は、先に **Windows 内の**各 CLI でサインインし、**Sync sources** の **Official Claude usage sync (opt-in)** / **Official Codex usage sync (opt-in)** を有効にして **Save** を押します。Mac 側のサインイン状態は Windows の仮想環境へ自動では引き継がれません。
+6. Windows 0.4.7 で Claude / Codex の公式残量を使う場合は、先に **Windows 内の**各 CLI でサインインし、**Sync sources** で使うソースを確認して **Start sync** を押し、同期の承認を保存します。**Save** だけでは同期を承認しません。既存の明示的なオフ設定は保持されます。Mac 側のサインイン状態は Windows の仮想環境へ自動では引き継がれません。
 7. Gemini は[以下の手順](#geminiantigravityを有効にする)で設定してください。トレイメニューの **Refresh now** でメーターを更新できます。自動起動は、Settings > Behavior の **Start with Windows** で切り替え、**Save** を押してください。
 
 ### Gemini（Antigravity）を有効にする
@@ -167,7 +169,7 @@ download した binary をそもそも信頼したくない場合は、下記の
 | 環境 | 有効にする項目 |
 | --- | --- |
 | macOS | **Providers > Gemini (Antigravity)** をオンにします。変更は自動で保存されます。 |
-| Windows | **Providers > Show Gemini (Antigravity)** と **Sync sources > Read Gemini quota from Antigravity (opt-in)** の両方をオンにし、**Save** を押します。 |
+| Windows（0.4.7） | **Providers > Show Gemini (Antigravity)** をオンにし、**Sync sources > Read Gemini quota from Antigravity** を確認して **Start sync** で承認を保存します。**Save** だけでは同期を承認しません。 |
 
 3. usage-kun の更新ボタン（Windows はトレイメニューの **Refresh now** も利用可）を押して残量を確認します。
 
@@ -235,7 +237,7 @@ open UsageKun.app
 
 ### Release ZIP で入れた場合
 
-1. [macOS v0.4.2 のリリース](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.2) から `UsageKun-macOS.zip` を download します。
+1. [macOS v0.4.4 のリリース](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.4) から `UsageKun-macOS.zip` を download します。
 2. メニューバーから古い usage-kun を終了します。
 3. `UsageKun-macOS.zip` を展開します。
 4. `/Applications/UsageKun.app` など、以前と同じ場所の古い `UsageKun.app` を新しいものに置き換えます。
@@ -247,7 +249,7 @@ open UsageKun.app
 
 ### Windows 版の場合
 
-1. Intel / AMD（x64）の Windows PC で、[最新リリース](https://github.com/Kohei-SAWADA/usage_kun/releases/latest)から `UsageKun-Windows-x64.zip` をダウンロードします。Windows ARM には v0.4.2 以降の対応アップデートはありません。Windows ARM 上で x64 ZIP に置き換える方法もサポート対象外です。
+1. Intel / AMD（x64）の Windows PC で、[v0.4.7 のリリース](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.7)から Windows 0.4.7 の `UsageKun-Windows-x64.zip` をダウンロードします。Windows ARM には v0.4.2 以降の対応アップデートはありません。Windows ARM 上で x64 ZIP に置き換える方法もサポート対象外です。
 2. 起動中の usage-kun のトレイアイコンを右クリックし、**Quit usage_kun** で終了します。
 3. **すべて展開** で ZIP を展開し、以前の保存先のアプリ一式を新しい内容に置き換えます。同じ保存先を使うと、ショートカットや自動起動の参照先もそのまま利用できます。インストーラーやアンインストール操作は不要です。
 4. 新しい `UsageKun.exe` を起動し、トレイメニューの **Refresh now** で更新します。設定と較正データは `%APPDATA%\usage_kun` に残ります。
@@ -259,7 +261,7 @@ open UsageKun.app
 usage-kun は段階的なデータ取得モデルを使います。
 
 1. Local logs: macOS は Claude Code と Codex のローカルログから推定します。Windows は新しい記録の Codex 利用枠と Claude のトークン数を読みます。トークン数だけでは Claude の残量は求めず、不明にします。
-2. Official usage sync: opt-in の場合のみ、同じ OS の CLI サインイン状態を読み取り専用で再利用し、公式残量と制限期間を取得します。macOS / Windows に対応しています。
+2. Official usage sync: 同じ OS の CLI サインイン状態を読み取り専用で再利用し、公式残量と制限期間を取得します。macOS と公開 Windows v0.4.4 は opt-in です。Windows 0.4.7 は初期チェックがオンでも **Start sync** で承認を保存するまで読み出しません。各ソースを個別にオフにできます。
 3. Claude calibration（macOS のみ）: Claude 使用量 sync が成功した場合、その値でローカル推定用の 5-hour cap を較正できます。Windows はトークン上限から利用枠の残量を推定しません。
 4. Gemini（Antigravity）: 有効にした場合のみ、起動中のローカル Antigravity IDE から Gemini の残量を取得します。取得できない場合に CLI ログや別サービスの値で補うことはしません。
 
@@ -354,6 +356,12 @@ AI 使用量 monitor や menu bar utility はすでに複数あります。usage
 - macOS 版は ad-hoc 署名のみで notarization はしていないため、download した copy の初回起動時に一度だけ Gatekeeper の許可が必要です。Windows 版の実行ファイルは未署名です。
 
 ## リリース履歴
+
+### Windows 0.4.7 — 最新ソースと配布 ZIP を統一
+
+- **Start sync** による明示的な承認処理を含む最新 Windows ソースを再ビルドし、アプリ・コアを 0.4.7 に統一しました。
+- ソース ZIP、配布実行ファイルのハッシュ、Windows の隔離チェック結果を保存しました。Windows v0.4.7 の配布物に対応するソースとビルド情報を保存しています。macOS の配布物は v0.4.4 のままです。
+- 詳細: [Windows 0.4.7](docs/release-notes-v0.4.7.md)。
 
 ### v0.4.3 — Windows の残量精度を修正
 

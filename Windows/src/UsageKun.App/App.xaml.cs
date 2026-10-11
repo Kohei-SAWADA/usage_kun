@@ -33,17 +33,17 @@ public partial class App : Application
         _trayIcon = new TrayIcon(
             _store,
             toggleWidget: ToggleWidget,
-            refresh: () => _ = _store.RefreshAsync(),
+            refresh: RefreshOrOpenSettings,
             openSettings: OpenSettings,
             quit: Shutdown);
 
         _refreshTimer = new DispatcherTimer();
         _refreshTimer.Tick += (_, _) => _ = _store.RefreshAsync();
         ApplyRefreshInterval();
-        _refreshTimer.Start();
 
         SyncWidgetVisibility();
-        _ = _store.RefreshAsync();
+        if (_store.Config.SyncApproved) _ = _store.RefreshAsync();
+        else OpenSettings();
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -74,6 +74,14 @@ public partial class App : Application
         {
             _refreshTimer.Interval = interval;
         }
+        if (_store.Config.SyncApproved) _refreshTimer.Start();
+        else _refreshTimer.Stop();
+    }
+
+    private void RefreshOrOpenSettings()
+    {
+        if (_store?.Config.SyncApproved == true) _ = _store.RefreshAsync();
+        else OpenSettings();
     }
 
     private void SyncWidgetVisibility()

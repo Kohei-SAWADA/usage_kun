@@ -11,7 +11,7 @@ namespace UsageKun.Core;
 /// Codex quota comes from the newest General rate-limit reading across session
 /// JSONL and the live logs_2.sqlite database. SQLite is bundled with the Windows
 /// app and opened read-only; no external sqlite3 installation is required.
-public sealed class LocalLogUsageService : IUsageService
+public sealed class LocalLogUsageService : ILocalLogUsageService
 {
     private readonly string _home;
     internal static readonly TimeSpan LocalQuotaMaximumAge = TimeSpan.FromMinutes(30);

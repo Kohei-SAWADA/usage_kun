@@ -94,6 +94,7 @@ public partial class WidgetWindow : Window
 
     private void Render()
     {
+        Topmost = _store.Config.AlwaysOnTop;
         ActionLabel.Text = _store.IsRefreshing
             ? "UPDATING"
             : _store.OverallStatus == UsageStatus.Unknown

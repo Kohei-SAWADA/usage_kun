@@ -56,9 +56,11 @@ internal static class Program
 
     private static async Task RunChecksAsync(string temporaryRoot, List<Window> windows)
     {
+        await CheckDefaultSyncSourcesAsync(temporaryRoot, windows);
         var configStore = new AppConfigStore(Path.Combine(temporaryRoot, "config.json"));
-        configStore.Save(new AppConfig
+        configStore.SaveWithSyncApproval(new AppConfig
         {
+            SyncApproved = true,
             ClaudeProviderEnabled = false,
             CodexProviderEnabled = true,
             AntigravityProviderEnabled = false,
@@ -77,6 +79,7 @@ internal static class Program
         widget.Show();
         await LayoutAsync(widget);
 
+        Check(!widget.Topmost, "the meter starts below other apps by default");
         var rows = Named<StackPanel>(widget, "RowsPanel");
         Check(rows.Children.Count == 1, "one selected provider renders one row");
         Check(HasText(widget, "1W") && !HasText(widget, "5H"), "weekly-only Codex renders 1W, with no 5H label");
@@ -155,6 +158,8 @@ internal static class Program
         Check(IsInsideWindow(Named<TextBlock>(widget, "UpdatedText"), widget), "meter update footer remains visible while rows scroll");
         Check(IsInsideWindow(refresh, widget) && IsInsideWindow(settingsButton, widget), "meter buttons remain visible while rows scroll");
 
+        await CheckAlwaysOnTopAsync(store, configStore, temporaryRoot, windows, widget);
+
         var settings = NewSettings(store, temporaryRoot, windows);
         settings.MaxHeight = Math.Min(settings.MaxHeight, 400);
         settings.Show();
@@ -185,7 +190,7 @@ internal static class Program
         Check(!saved.ClaudeProviderEnabled && saved.CodexProviderEnabled && saved.AntigravityProviderEnabled,
             "Save persists provider selection to the temporary config");
         Check(saved.ClaudeOfficialUsageEnabled && saved.CodexOfficialUsageEnabled && saved.AntigravityUsageEnabled,
-            "Save persists sync opt-ins only to the temporary config");
+            "Save persists sync source choices only to the temporary config");
         Check(saved.RefreshIntervalMinutes == 10 && !saved.DesktopWidgetEnabled && !saved.LaunchAtLoginEnabled,
             "Save persists behavior choices without running the product app");
         Check(saved.ClaudePlanOverride == "max_5x", "Save preserves the unused legacy Claude plan preference");
@@ -200,6 +205,112 @@ internal static class Program
         Check(!canceledSettings.IsVisible, "Cancel Click handler closes settings");
         Check(File.ReadAllText(configStore.ConfigPath) == beforeCancel && store.Config.CodexProviderEnabled
             && store.Config.RefreshIntervalMinutes == 10, "Cancel leaves saved config and active choices unchanged");
+    }
+
+    private static async Task CheckDefaultSyncSourcesAsync(string temporaryRoot, List<Window> windows)
+    {
+        var configStore = new AppConfigStore(Path.Combine(temporaryRoot, "default-sync.json"));
+        var service = new FixtureUsageService();
+        var store = new UsageStore(service, configStore);
+        var settings = NewSettings(store, temporaryRoot, windows);
+        settings.Show();
+        await LayoutAsync(settings);
+        string[] syncControls = ["LocalLogCheck", "ClaudeOfficialCheck", "CodexOfficialCheck", "AntigravityUsageCheck"];
+        Check(syncControls.All(name => Named<CheckBox>(settings, name).IsChecked == true),
+            "all four Sync sources checkboxes start checked with no saved config");
+        Check(!store.Config.SyncApproved && Named<Button>(settings, "StartSyncButton").IsVisible
+            && !Named<Button>(settings, "StartSyncButton").IsDefault,
+            "fresh settings offer a distinct Start sync action that is not the default Save button");
+        await store.RefreshAsync();
+        Check(service.CallCount == 0, "refresh with initial checked sources does not call the fixture provider before approval");
+        Click(ContentButton(settings, "Cancel"));
+        Check(!File.Exists(configStore.ConfigPath) && !store.Config.SyncApproved && service.CallCount == 0,
+            "initial Cancel leaves no saved approval or provider access");
+        settings = NewSettings(store, temporaryRoot, windows);
+        settings.Show();
+        await LayoutAsync(settings);
+        Check(Equals(Named<CheckBox>(settings, "AlwaysOnTopCheck").Content, "Always on top")
+            && Named<CheckBox>(settings, "AlwaysOnTopCheck").IsChecked == false,
+            "Always on top uses an English label and remains off by default");
+        foreach (var name in syncControls) Named<CheckBox>(settings, name).IsChecked = false;
+        Click(ContentButton(settings, "Save"));
+        await UntilAsync(() => !store.IsRefreshing, "disabled default sync fixture refresh completes");
+        Check(!store.Config.SyncApproved && !configStore.Load().SyncApproved && service.CallCount == 0,
+            "Save preserves choices without granting consent or reading providers");
+        var restartedStore = new UsageStore(service, configStore);
+        var reopened = NewSettings(restartedStore, temporaryRoot, windows);
+        reopened.Show();
+        await LayoutAsync(reopened);
+        Check(syncControls.All(name => Named<CheckBox>(reopened, name).IsChecked == false),
+            "saved sync opt-outs remain unchecked after reconstructing the store and settings");
+        Click(Named<Button>(reopened, "StartSyncButton"));
+        await UntilAsync(() => !restartedStore.IsRefreshing, "explicit Start sync fixture refresh completes");
+        Check(configStore.Load().SyncApproved && restartedStore.Config.SyncApproved && service.CallCount == 1,
+            "Start sync persists approval before calling the fixture provider");
+        var approved = NewSettings(restartedStore, temporaryRoot, windows);
+        approved.Show();
+        await LayoutAsync(approved);
+        Check(!Named<Button>(approved, "StartSyncButton").IsVisible
+            && syncControls.All(name => Named<CheckBox>(approved, name).IsChecked == false),
+            "approved settings preserve source opt-outs and hide the initial Start sync action");
+        Named<CheckBox>(approved, "CodexOfficialCheck").IsChecked = true;
+        File.WriteAllText(configStore.ConfigPath, "{");
+        await restartedStore.RefreshAsync();
+        Check(Named<Button>(approved, "StartSyncButton").IsVisible
+            && Named<TextBlock>(approved, "SyncApprovalHelpText").Text.StartsWith("Sync is paused.")
+            && Named<CheckBox>(approved, "CodexOfficialCheck").IsChecked == true && service.CallCount == 1,
+            "open settings reflects lost approval while preserving unsaved checkbox choices and blocking reads");
+        Click(ContentButton(approved, "Cancel"));
+    }
+
+    private static async Task CheckAlwaysOnTopAsync(UsageStore store, AppConfigStore configStore,
+        string temporaryRoot, List<Window> windows, WidgetWindow widget)
+    {
+        var settings = NewSettings(store, temporaryRoot, windows);
+        settings.Show();
+        await LayoutAsync(settings);
+        Check(!settings.Topmost && Named<CheckBox>(settings, "AlwaysOnTopCheck").IsChecked == false,
+            "settings and its always-on-top checkbox default off");
+        Named<CheckBox>(settings, "AlwaysOnTopCheck").IsChecked = true;
+        Click(ContentButton(settings, "Save"));
+        Check(widget.Topmost && configStore.Load().AlwaysOnTop,
+            "Save enables always-on-top immediately on the existing meter and persists it");
+        await UntilAsync(() => !store.IsRefreshing, "always-on-top enabled refresh completes");
+
+        var restartedStore = new UsageStore(new FixtureUsageService(), configStore);
+        var restartedWidget = new WidgetWindow(restartedStore, () => { });
+        MarkTestWindow(restartedWidget);
+        windows.Add(restartedWidget);
+        restartedWidget.Show();
+        await LayoutAsync(restartedWidget);
+        Check(restartedWidget.Topmost, "a new meter restores the saved always-on-top setting");
+        restartedWidget.Close();
+
+        var canceled = NewSettings(store, temporaryRoot, windows);
+        canceled.Show();
+        await LayoutAsync(canceled);
+        Check(canceled.Topmost && Named<CheckBox>(canceled, "AlwaysOnTopCheck").IsChecked == true,
+            "reopened settings restores the enabled checkbox and window behavior");
+        Named<CheckBox>(canceled, "AlwaysOnTopCheck").IsChecked = false;
+        Click(ContentButton(canceled, "Cancel"));
+        Check(widget.Topmost && configStore.Load().AlwaysOnTop,
+            "Cancel preserves the saved and active always-on-top state");
+
+        var disabled = NewSettings(store, temporaryRoot, windows);
+        disabled.Show();
+        await LayoutAsync(disabled);
+        Named<CheckBox>(disabled, "AlwaysOnTopCheck").IsChecked = false;
+        Click(ContentButton(disabled, "Save"));
+        Check(!widget.Topmost && !configStore.Load().AlwaysOnTop,
+            "Save disables always-on-top immediately on the existing meter and persists it");
+        await UntilAsync(() => !store.IsRefreshing, "always-on-top disabled refresh completes");
+
+        var reopened = NewSettings(store, temporaryRoot, windows);
+        reopened.Show();
+        await LayoutAsync(reopened);
+        Check(!reopened.Topmost && Named<CheckBox>(reopened, "AlwaysOnTopCheck").IsChecked == false,
+            "reopened settings restores the disabled always-on-top state");
+        Click(ContentButton(reopened, "Cancel"));
     }
 
     private static async Task CheckPercentRenderingAsync(FixtureUsageService service, UsageStore store,
@@ -330,7 +441,6 @@ internal static class Program
         window.WindowStyle = WindowStyle.SingleBorderWindow;
         window.Title = "usage_kun UI CHECK - TEST DATA ONLY";
         window.ShowInTaskbar = true;
-        window.Topmost = false;
         window.WindowStartupLocation = WindowStartupLocation.Manual;
         window.Left = SystemParameters.WorkArea.Left + 16;
         window.Top = SystemParameters.WorkArea.Top + 16;

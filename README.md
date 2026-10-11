@@ -9,7 +9,7 @@
 
 Keep remaining quota and reset times in view from your macOS menu bar or Windows x64 tray. Optional Gemini support reads Antigravity IDE quota, not Gemini app usage or API billing.
 
-**[Download for macOS (Apple Silicon)](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-macOS.zip)** · **[Download for Windows x64](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-Windows-x64.zip)** · [Setup guide](#quick-start) · [GIF demo](#demo)
+**[Download for macOS (Apple Silicon)](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-macOS.zip)** · **[Download for Windows x64](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.7/UsageKun-Windows-x64.zip)** · [Setup guide](#quick-start) · [GIF demo](#demo)
 
 macOS 14+; Windows 10/11 on Intel/AMD x64. Windows ARM is unsupported. The macOS app is ad-hoc signed and not notarized; the Windows app is unsigned.
 
@@ -39,7 +39,7 @@ Edited from real recordings on this Mac: the menu-bar popover's Usage and Settin
 
 usage-kun is a small, privacy-first macOS menu bar and Windows system-tray app for keeping Codex, Claude, and optional Gemini (Antigravity) usage visible while you work.
 
-It is built as a personal utility: a compact usage meter rather than a full analytics dashboard. It reads local CLI usage data by default and can optionally reuse Claude Code / Codex CLI sign-in tokens in read-only mode for official quota numbers. Codex labels follow the actual limit duration, including 5-hour and weekly limits. It does not store, refresh, or log those tokens.
+It is built as a personal utility: a compact usage meter rather than a full analytics dashboard. On macOS it reads local CLI usage data by default; Windows release 0.4.7 starts reading only after explicit Start sync approval. It can optionally reuse Claude Code / Codex CLI sign-in tokens in read-only mode for official quota numbers. Codex labels follow the actual limit duration, including 5-hour and weekly limits. It does not store, refresh, or log those tokens.
 
 Gemini support reads the 5-hour and weekly quota shown in **Models & Usage > Gemini Models** inside the Antigravity IDE. Enable it in Settings while Antigravity is open and signed in on the same computer. This is Antigravity's Gemini quota, not Gemini app usage or Gemini API billing.
 
@@ -47,22 +47,24 @@ This project is not affiliated with, endorsed by, or sponsored by OpenAI, Anthro
 
 ## Downloads
 
-The current macOS and Windows version is [v0.4.4](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.4), with login startup that preserves existing off choices. The Windows v0.4.3 quota accuracy fixes remain included. Windows supports Intel / AMD x64 PCs; macOS supports Apple Silicon. Windows ARM remains unsupported.
+The current Windows release is [v0.4.7](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.7) (2026-10-11), rebuilt from the matching Windows source and checked on Windows. The macOS release remains [v0.4.4](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.4). Login startup preserves existing off choices. The Windows v0.4.3 quota accuracy fixes remain included. Windows supports Intel / AMD x64 PCs; macOS supports Apple Silicon. Windows ARM remains unsupported.
 
 Choose the current download for your platform:
 
 | Platform | ZIP |
 | --- | --- |
 | macOS (Apple Silicon) | [UsageKun-macOS.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-macOS.zip) |
-| Windows (Intel / AMD, x64) | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip) |
+| Windows (Intel / AMD, x64) | [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.7/UsageKun-Windows-x64.zip) |
 
 Windows v0.4.3 keeps expired, stale, invalid, and unavailable quota unknown instead of assuming 100%. Claude local token totals do not establish subscription quota; enable opt-in authenticated usage sync for a reported quota. Codex quota is separate from ordinary ChatGPT chat limits and API billing. [Windows accuracy changes](docs/release-notes-v0.4.3.md).
 
-For Windows, follow [Install On Windows](#install-on-windows) below. The ZIP includes the .NET runtime; no SDK or separate runtime installation is needed. Download the app ZIP from the table above or **Assets** on the release page. **Code > Download ZIP** and **Source code** contain development source files.
+For Windows, follow [Install On Windows](#install-on-windows) below. The ZIP includes the .NET runtime; no SDK or separate runtime installation is needed. Download the Windows app ZIP from the table above or **Assets** on the v0.4.7 release page. **Code > Download ZIP** and **Source code** contain development source files.
 
 Setup: [Windows](#install-on-windows) / [macOS](#install-from-the-release-zip) / [Gemini](#enable-gemini-antigravity).
 
 The screenshots below show an earlier macOS version with Codex and Claude. The current version also supports Gemini (Antigravity).
+
+Windows **0.4.7** includes the latest sync-approval changes. The [v0.4.7 release](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.7) includes a matching Windows source ZIP, source input hashes, package checksums, and build manifest. See [Windows build provenance](docs/windows-build-v0.4.7.json). Initial checked selections do not authorize reading sources or credentials, or making requests: choose **Start sync** in Settings and save approval first. **Save** alone does not approve sync. See the [Windows guide](docs/windows.md#current-windows-release).
 
 ## Screenshots
 
@@ -120,7 +122,7 @@ usage-kun is designed to stay visible without becoming a dashboard. Click the me
 
 On macOS:
 
-1. Download `UsageKun-macOS.zip` from the [macOS v0.4.2 release](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.2).
+1. Download `UsageKun-macOS.zip` from the [macOS v0.4.4 release](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.4).
 2. Unzip it and move `UsageKun.app` to `/Applications` (or anywhere you like).
 3. Open `UsageKun.app`.
 4. To use official quotas, sign in to Claude Code or Codex on this Mac, then enable **Claude official usage** or **Codex official usage** under **Settings > Official usage**. For Gemini, see [Enable Gemini (Antigravity)](#enable-gemini-antigravity).
@@ -152,11 +154,11 @@ If you prefer not to trust a downloaded binary at all, build it yourself from so
 ### Install On Windows
 
 1. Open Windows **Settings > System > About** and check **System type**. An Intel / AMD PC with an x64-based processor is required. Windows ARM is unsupported, including Windows running on an Apple Silicon Mac.
-2. Download [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/latest/download/UsageKun-Windows-x64.zip).
+2. Download [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.7/UsageKun-Windows-x64.zip).
 3. Right-click the downloaded ZIP, select **Extract All...**, and keep the extracted files together in a folder where you want to use the app.
 4. Open that folder and double-click `UsageKun.exe`. No installer or separate .NET installation is required. The app appears in the system tray near the clock; expand the hidden icons if needed.
 5. Right-click the usage-kun tray icon and choose **Settings...**. Under **Providers**, select the providers you use.
-6. For official Claude / Codex quotas, first sign in to Claude Code or Codex **inside Windows**. Under **Sync sources**, check **Official Claude usage sync (opt-in)** and/or **Official Codex usage sync (opt-in)**, then click **Save**. Sign-ins on the Mac host are not reused by a Windows VM.
+6. For official Claude / Codex quotas, first sign in to Claude Code or Codex **inside Windows**. In Windows 0.4.7, review the **Sync sources** you want to use, then click **Start sync** to save explicit approval. **Save** alone saves preferences and does not approve sync. Existing explicit off choices are preserved on upgrade. See the [Windows guide](docs/windows.md#current-windows-release). Sign-ins on the Mac host are not reused by a Windows VM.
 7. To add Gemini, follow the steps below. Use **Refresh now** from the tray menu to update the meter. You can change **Start with Windows** in Settings to control automatic startup, then click **Save**.
 
 See the [Windows guide](docs/windows.md) for more setup details and platform limitations.
@@ -169,7 +171,7 @@ See the [Windows guide](docs/windows.md) for more setup details and platform lim
 | Platform | Settings |
 | --- | --- |
 | macOS | Turn on **Settings > Providers > Gemini (Antigravity)**. This enables both display and quota reading; changes save automatically. |
-| Windows | Check **Providers > Show Gemini (Antigravity)** and **Sync sources > Read Gemini quota from Antigravity (opt-in)**, then click **Save**. |
+| Windows (0.4.7) | Check **Providers > Show Gemini (Antigravity)**, review **Sync sources > Read Gemini quota from Antigravity**, then click **Start sync** to save approval. **Save** alone does not approve sync. See the [Windows guide](docs/windows.md#current-windows-release). |
 
 3. Refresh usage-kun. The Gemini card shows the remaining 5-hour and weekly quota from Antigravity's **Models & Usage > Gemini Models**, with reset times when available.
 
@@ -237,7 +239,7 @@ open UsageKun.app
 
 On macOS:
 
-1. Download `UsageKun-macOS.zip` from the [macOS v0.4.2 release](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.2).
+1. Download `UsageKun-macOS.zip` from the [macOS v0.4.4 release](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.4).
 2. Quit the old usage-kun app from the menu bar.
 3. Unzip `UsageKun-macOS.zip`.
 4. Replace your old `UsageKun.app` with the new one at the same location, such as `/Applications/UsageKun.app`.
@@ -249,7 +251,7 @@ On first launch of the new version, macOS may show the "could not verify" warnin
 
 ### If You Used The Release ZIP (Windows)
 
-1. On an Intel / AMD Windows PC (x64), download the latest `UsageKun-Windows-x64.zip` from [Releases](https://github.com/Kohei-SAWADA/usage_kun/releases/latest). Windows ARM installations have no supported update from v0.4.2 onward; the x64 ZIP is not a supported replacement on Windows ARM.
+1. On an Intel / AMD Windows PC (x64), download the latest `UsageKun-Windows-x64.zip` from [the v0.4.7 release](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.7). Windows ARM installations have no supported update from v0.4.2 onward; the x64 ZIP is not a supported replacement on Windows ARM.
 2. Right-click the existing tray icon and choose **Quit usage_kun**.
 3. Use **Extract All...** to unpack the new ZIP, then replace the complete app contents in your existing app folder with the extracted files. Keeping the same folder preserves existing shortcut and startup paths. No installer or uninstall step is required.
 4. Run `UsageKun.exe` from that folder, then choose **Refresh now** from the tray menu. Your saved settings and calibration remain in `%APPDATA%\usage_kun`.
@@ -261,9 +263,9 @@ If you move the app to a different folder, update your shortcuts. Open the new `
 usage-kun uses a staged data model:
 
 1. Local logs: macOS reads Claude Code and Codex usage estimates. Windows reads fresh recorded Codex quota and Claude token totals; token totals alone leave Claude quota unknown.
-2. Official usage sync: opt-in only; reuses CLI sign-ins on the same OS in read-only mode to fetch official quota numbers and limit durations. Available on macOS and Windows.
+2. Official usage sync: opt-in on macOS and in the published Windows v0.4.4 build; reuses CLI sign-ins on the same OS in read-only mode to fetch official quota numbers and limit durations. Windows release 0.4.7 initially checks these selections, but reads nothing until explicit **Start sync** approval is saved. Each source can be disabled in Settings.
 3. Claude calibration (macOS only): successful Claude usage sync can calibrate the local 5-hour cap estimate for later fallback use. Windows does not derive quota from token caps.
-4. Gemini (Antigravity): opt-in only; reads the running IDE's local quota service for **Gemini Models** 5-hour and weekly remaining usage and reset times. It does not read Gemini app usage or Gemini API billing, or substitute CLI logs or another provider's quota when unavailable.
+4. Gemini (Antigravity): provider display is opt-in. In Windows release 0.4.7, its sync selection is initially checked but access requires saved **Start sync** approval; the published v0.4.4 build retains opt-in sync. Reads the running IDE's local quota service for **Gemini Models** 5-hour and weekly remaining usage and reset times. It does not read Gemini app usage or Gemini API billing, or substitute CLI logs or another provider's quota when unavailable.
 
 See [docs/providers.md](docs/providers.md) for details.
 
@@ -358,6 +360,12 @@ The emphasis is on:
 - Windows reads Codex live quota from `logs_2.sqlite` and session JSONL logs; auxiliary token/thread statistics from `state_5.sqlite` are not implemented. See the [Windows guide](docs/windows.md#validation-and-limits) for Windows validation status.
 
 ## Release History
+
+### Windows 0.4.7 — source and ZIP aligned
+
+- Rebuild the latest Windows source, including the explicit **Start sync** approval gate, as app and core version 0.4.7.
+- Record exact source and packaged executable hashes, the source snapshot, and isolated Windows check results. Windows v0.4.7 includes a matching source archive and build record; macOS remains v0.4.4.
+- Details: [Windows 0.4.7](docs/release-notes-v0.4.7.md).
 
 ### v0.4.3 — Windows quota accuracy
 

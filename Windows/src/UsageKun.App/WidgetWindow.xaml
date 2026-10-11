@@ -8,12 +8,12 @@
         ResizeMode="NoResize"
         AllowsTransparency="True"
         Background="Transparent"
-        Topmost="True"
+        Topmost="False"
         ShowInTaskbar="False"
         ShowActivated="False">
 
     <!-- Windows counterpart of the macOS pinned desktop meter
-         (DesktopWidgetView): an always-on-top borderless panel. -->
+         (DesktopWidgetView): a borderless panel with optional always-on-top behavior. -->
 
     <Window.Resources>
         <SolidColorBrush x:Key="TextPrimary" Color="#E0FFEB"/>

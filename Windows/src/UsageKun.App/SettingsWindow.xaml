@@ -5,7 +5,7 @@
         Width="430"
         SizeToContent="Height"
         ResizeMode="NoResize"
-        Topmost="True"
+        Topmost="False"
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
@@ -37,18 +37,19 @@
 
         <GroupBox Header="Sync sources" Padding="8" Margin="0,10,0,0">
             <StackPanel>
+                <TextBlock x:Name="SyncApprovalHelpText" TextWrapping="Wrap" Margin="0,0,0,8"/>
                 <CheckBox x:Name="LocalLogCheck" Content="Local CLI logs (.claude / .codex)"/>
-                <CheckBox x:Name="ClaudeOfficialCheck" Content="Claude usage sync (opt-in)" Margin="0,6,0,0"/>
+                <CheckBox x:Name="ClaudeOfficialCheck" Content="Claude usage sync" Margin="0,6,0,0"/>
                 <TextBlock x:Name="ClaudeQuotaHelpText"
                            Text="Local Claude logs show token totals. Enable Claude usage sync to read remaining quota. Unavailable quota stays unknown."
                            FontSize="11" Foreground="Gray" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                <CheckBox x:Name="CodexOfficialCheck" Content="Codex usage sync (opt-in)" Margin="0,6,0,0"/>
+                <CheckBox x:Name="CodexOfficialCheck" Content="Codex usage sync" Margin="0,6,0,0"/>
                 <TextBlock Text="Uses existing Windows CLI sign-ins to read official usage. Tokens are never saved, refreshed, or logged. Sign in to the CLI first."
                            FontSize="11"
                            Foreground="Gray"
                            TextWrapping="Wrap"
                            Margin="0,6,0,0"/>
-                <CheckBox x:Name="AntigravityUsageCheck" Content="Read Gemini quota from Antigravity (opt-in)" Margin="0,10,0,0"/>
+                <CheckBox x:Name="AntigravityUsageCheck" Content="Read Gemini quota from Antigravity" Margin="0,10,0,0"/>
                 <TextBlock Text="Open Antigravity on Windows and sign in. Reads quota from its local service; temporary credentials are never saved or logged. Unavailable quota stays unknown."
                            FontSize="11" Foreground="Gray" TextWrapping="Wrap" Margin="0,6,0,0"/>
             </StackPanel>
@@ -62,6 +63,7 @@
                     <TextBlock Text="minutes" VerticalAlignment="Center"/>
                 </StackPanel>
                 <CheckBox x:Name="DesktopWidgetCheck" Content="Show the floating usage meter" Margin="0,10,0,0"/>
+                <CheckBox x:Name="AlwaysOnTopCheck" Content="Always on top" Margin="0,6,0,0"/>
                 <CheckBox x:Name="LaunchAtLoginCheck" Content="Start with Windows" Margin="0,6,0,0"/>
                 <TextBlock x:Name="StartupStatusText" TextWrapping="Wrap" Margin="0,4,0,0"/>
             </StackPanel>
@@ -75,6 +77,8 @@
     </StackPanel>
     </ScrollViewer>
     <StackPanel Grid.Row="1">
+        <Button x:Name="StartSyncButton" Content="Start sync" HorizontalAlignment="Right"
+                MinWidth="100" Margin="0,12,0,0" Click="OnStartSyncClick"/>
         <TextBlock x:Name="SaveErrorText" FontSize="12" Foreground="DarkRed"
                    TextWrapping="Wrap" Visibility="Collapsed" Margin="2,8,2,0"/>
 

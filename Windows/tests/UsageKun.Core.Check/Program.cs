@@ -12,6 +12,7 @@ CheckLoginStartup();
 CheckStatusAndDisplay();
 await CheckMockService();
 CheckConfigSchema();
+await SyncApprovalChecks.RunAsync();
 await CheckProviderVisibility();
 CheckClaudePlanResolution();
 await CheckCodexSessionRateLimits();
@@ -26,7 +27,7 @@ CheckWindowLabelsAndOfficialParsers();
 await CheckCodexWindowVariants();
 CheckAntigravityQuota();
 await CheckOfficialTransport();
-await CheckOptInSources();
+await CheckSyncSourceSelection();
 await CheckRefreshConfigurationRace();
 await CheckRefreshFailureRecovery();
 await CheckQuotaRefreshSafety();
@@ -100,7 +101,7 @@ static void CheckConfigSchema()
     try
     {
         // Keys another platform/version wrote must be ignored, and missing
-        // keys must fall back to the same defaults as the macOS decoder.
+        // sync keys must fall back to the Windows defaults.
         var store = new AppConfigStore(Path.Combine(home, "config.json"));
         Directory.CreateDirectory(home);
         File.WriteAllText(store.ConfigPath, """
@@ -116,20 +117,30 @@ static void CheckConfigSchema()
         Expect(!legacy.LocalLogEnabled, "legacy config values should decode");
         Expect(legacy.RefreshIntervalMinutes == 10, "explicit interval should decode");
         Expect(legacy.DesktopWidgetEnabled, "desktop widget should default on for legacy config");
+        Expect(!new AppConfig().AlwaysOnTop && !legacy.AlwaysOnTop,
+            "always-on-top should default off for fresh and legacy config");
         Expect(legacy.LaunchAtLoginEnabled, "launch at login should default on for legacy config");
         Expect(!legacy.OnboardingCompleted, "onboarding should default incomplete for legacy config");
-        Expect(!legacy.ClaudeOfficialUsageEnabled, "official Claude sync should default off");
-        Expect(!legacy.CodexOfficialUsageEnabled, "official Codex sync should default off");
+        var fresh = new AppConfig();
+        Expect(fresh.LocalLogEnabled && fresh.ClaudeOfficialUsageEnabled && fresh.CodexOfficialUsageEnabled && fresh.AntigravityUsageEnabled,
+            "all four sync sources should default on for fresh config");
+        Expect(legacy.ClaudeOfficialUsageEnabled && legacy.CodexOfficialUsageEnabled && legacy.AntigravityUsageEnabled,
+            "missing sync source keys should default on while explicit local-log off is preserved");
         Expect(legacy.ClaudePlanOverride == "auto", "Claude plan override should default to auto");
         Expect(legacy.ClaudeProviderEnabled, "Claude provider should default visible");
         Expect(legacy.CodexProviderEnabled, "Codex provider should default visible");
-        Expect(!legacy.AntigravityProviderEnabled && !legacy.AntigravityUsageEnabled, "Gemini must default hidden and opt-out");
+        Expect(!legacy.AntigravityProviderEnabled, "Gemini provider display should remain hidden by default");
         Expect(legacy.WidgetPositionX == null, "widget position should default unset");
 
         var config = new AppConfig
         {
             RefreshIntervalMinutes = 15,
             ClaudePlanOverride = "max_20x",
+            AlwaysOnTop = true,
+            LocalLogEnabled = false,
+            ClaudeOfficialUsageEnabled = false,
+            CodexOfficialUsageEnabled = false,
+            AntigravityUsageEnabled = false,
             WidgetPositionX = 24,
             WidgetPositionY = 32
         };
@@ -141,6 +152,10 @@ static void CheckConfigSchema()
 
         var reloaded = store.Load();
         Expect(reloaded.RefreshIntervalMinutes == 15, "interval should round-trip");
+        Expect(!reloaded.LocalLogEnabled && !reloaded.ClaudeOfficialUsageEnabled && !reloaded.CodexOfficialUsageEnabled && !reloaded.AntigravityUsageEnabled,
+            "explicitly disabled sync sources should stay off after save and reload");
+        Expect(reloaded.AlwaysOnTop && reloaded.Clone().AlwaysOnTop, "always-on-top should round-trip and clone");
+        Expect(raw.Contains("\"alwaysOnTop\": true"), "always-on-top should use its camelCase config key");
         Expect(reloaded.ClaudePlanOverride == "max_20x", "plan override should round-trip");
         ExpectClose(reloaded.WidgetPositionX, 24, "widget X should round-trip");
         ExpectClose(reloaded.WidgetPositionY, 32, "widget Y should round-trip");
@@ -164,33 +179,33 @@ static async Task CheckProviderVisibility()
             new LocalLogUsageService(home, new ClaudeCalibrationStore(Path.Combine(home, "claude_calibration.json"))),
             new CLIOAuthUsageService(home));
 
-        configStore.Save(new AppConfig());
+        configStore.SaveWithSyncApproval(new AppConfig { SyncApproved = true });
         var both = await service.SnapshotsAsync(now);
         Expect(both.Select(snapshot => snapshot.Provider).SequenceEqual([UsageProvider.Codex, UsageProvider.Claude]),
             "both providers should show by default");
 
-        configStore.Save(new AppConfig { CodexProviderEnabled = false });
+        configStore.SaveWithSyncApproval(new AppConfig { SyncApproved = true, CodexProviderEnabled = false });
         var claudeOnly = await service.SnapshotsAsync(now);
         Expect(claudeOnly.Select(snapshot => snapshot.Provider).SequenceEqual([UsageProvider.Claude]),
             "unchecked Codex should be hidden");
 
-        configStore.Save(new AppConfig { ClaudeProviderEnabled = false });
+        configStore.SaveWithSyncApproval(new AppConfig { SyncApproved = true, ClaudeProviderEnabled = false });
         var codexOnly = await service.SnapshotsAsync(now);
         Expect(codexOnly.Select(snapshot => snapshot.Provider).SequenceEqual([UsageProvider.Codex]),
             "unchecked Claude should be hidden");
 
-        configStore.Save(new AppConfig { ClaudeProviderEnabled = false, CodexProviderEnabled = false });
+        configStore.SaveWithSyncApproval(new AppConfig { SyncApproved = true, ClaudeProviderEnabled = false, CodexProviderEnabled = false });
         var none = await service.SnapshotsAsync(now);
         Expect(none.Count == 0, "hiding both providers should produce no snapshots");
 
-        configStore.Save(new AppConfig { LocalLogEnabled = false, CodexProviderEnabled = false });
+        configStore.SaveWithSyncApproval(new AppConfig { SyncApproved = true, LocalLogEnabled = false, ClaudeOfficialUsageEnabled = false, CodexProviderEnabled = false });
         var disabledClaude = await service.SnapshotsAsync(now);
         Expect(disabledClaude.Select(snapshot => snapshot.Provider).SequenceEqual([UsageProvider.Claude]),
             "disabled-sync placeholders should also respect provider visibility");
         Expect(disabledClaude[0].Source == "disabled", "placeholder should mark the disabled source");
 
         // Missing Windows CLI sign-in should explain the fallback without sending a request.
-        configStore.Save(new AppConfig { ClaudeOfficialUsageEnabled = true });
+        configStore.SaveWithSyncApproval(new AppConfig { SyncApproved = true, ClaudeOfficialUsageEnabled = true });
         var officialRequested = await service.SnapshotsAsync(now);
         var claude = officialRequested.First(snapshot => snapshot.Provider == UsageProvider.Claude);
         Expect(claude.Message?.Contains("Official sync unavailable") == true,
@@ -780,7 +795,7 @@ static async Task CheckOfficialTransport()
     finally { TryDelete(home); }
 }
 
-static async Task CheckOptInSources()
+static async Task CheckSyncSourceSelection()
 {
     var home = TemporaryHome();
     try
@@ -790,23 +805,31 @@ static async Task CheckOptInSources()
         var official = new FixtureOfficialService();
         var gemini = new FixtureAntigravityService();
         var service = new CompositeUsageService(configStore, new LocalLogUsageService(home), official, gemini);
-        var config = new AppConfig { LocalLogEnabled = false, AntigravityProviderEnabled = true };
-        configStore.Save(config);
+        var config = new AppConfig { SyncApproved = true, LocalLogEnabled = false, AntigravityProviderEnabled = true };
+        configStore.SaveWithSyncApproval(config);
         var snapshots = await service.SnapshotsAsync(DateTimeOffset.Now);
-        Expect(official.Count == 0 && gemini.Count == 0, "visible providers must not imply credential opt-in");
-        Expect(snapshots.Count == 3, "visible Gemini should have setup guidance before opt-in");
+        Expect(official.Count == 2 && gemini.Count == 1 && snapshots.Count == 3,
+            "default-enabled sync sources should fetch every visible provider");
+        config.ClaudeOfficialUsageEnabled = false;
+        config.CodexOfficialUsageEnabled = false;
+        config.AntigravityUsageEnabled = false;
+        configStore.Save(config);
+        snapshots = await service.SnapshotsAsync(DateTimeOffset.Now);
+        Expect(official.Count == 2 && gemini.Count == 1,
+            "explicitly disabled sync sources must not read credentials or call providers");
+        Expect(snapshots.Count == 3, "visible providers retain setup guidance when sync is disabled");
         config.ClaudeOfficialUsageEnabled = true;
         config.CodexOfficialUsageEnabled = true;
         config.AntigravityUsageEnabled = true;
         configStore.Save(config);
         snapshots = await service.SnapshotsAsync(DateTimeOffset.Now);
-        Expect(official.Count == 2 && gemini.Count == 1, "explicitly enabled sources should be called");
+        Expect(official.Count == 4 && gemini.Count == 2, "re-enabled sync sources should be called");
         Expect(snapshots.Select(s => s.Provider).SequenceEqual([UsageProvider.Codex, UsageProvider.Claude, UsageProvider.Antigravity]), "provider identity/order must remain stable");
         config.ClaudeProviderEnabled = false;
         config.CodexProviderEnabled = false;
         config.AntigravityProviderEnabled = false;
         configStore.Save(config);
-        Expect((await service.SnapshotsAsync(DateTimeOffset.Now)).Count == 0 && official.Count == 2 && gemini.Count == 1,
+        Expect((await service.SnapshotsAsync(DateTimeOffset.Now)).Count == 0 && official.Count == 4 && gemini.Count == 2,
             "hidden providers must not be fetched even if their sync flags remain enabled");
     }
     finally { TryDelete(home); }
@@ -819,12 +842,12 @@ static async Task CheckRefreshConfigurationRace()
     {
         Directory.CreateDirectory(home);
         var configStore = new AppConfigStore(Path.Combine(home, "config.json"));
-        configStore.Save(new AppConfig());
+        configStore.SaveWithSyncApproval(new AppConfig { SyncApproved = true });
         var service = new DelayedFixtureService();
         var store = new UsageStore(service, configStore);
         var refresh = store.RefreshAsync();
         await service.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        store.UpdateConfig(new AppConfig { CodexProviderEnabled = false });
+        store.UpdateConfig(new AppConfig { SyncApproved = true, CodexProviderEnabled = false });
         service.Release.TrySetResult();
         await refresh.WaitAsync(TimeSpan.FromSeconds(5));
         Expect(service.Count == 2, "config change during a fetch must queue an immediate second refresh");
@@ -841,7 +864,7 @@ static async Task CheckRefreshFailureRecovery()
     {
         Directory.CreateDirectory(home);
         var configStore = new AppConfigStore(Path.Combine(home, "config.json"));
-        configStore.Save(new AppConfig());
+        configStore.SaveWithSyncApproval(new AppConfig { SyncApproved = true });
         var store = new UsageStore(new RecoveringFixtureService(), configStore);
         await store.RefreshAsync();
         Expect(store.LastErrorMessage?.Contains("Usage refresh failed") == true && !store.IsRefreshing,
@@ -880,7 +903,7 @@ static async Task CheckQuotaRefreshSafety()
     {
         Directory.CreateDirectory(home);
         var configStore = new AppConfigStore(Path.Combine(home, "config.json"));
-        configStore.Save(new AppConfig { ClaudeProviderEnabled = false });
+        configStore.SaveWithSyncApproval(new AppConfig { SyncApproved = true, ClaudeProviderEnabled = false });
         var service = new QuotaFailureFixtureService();
         var store = new UsageStore(service, configStore);
         await store.RefreshAsync();
@@ -907,7 +930,7 @@ static async Task CheckFailedOfficialDoesNotBorrowLocalQuota()
         File.WriteAllText(Path.Combine(sessions, "previous-account.jsonl"), CodexTokenCountLine(Iso(now),
             "{\"used_percent\":0,\"window_minutes\":300}", "{\"used_percent\":0,\"window_minutes\":10080}"));
         var configStore = new AppConfigStore(Path.Combine(home, "config.json"));
-        configStore.Save(new AppConfig { ClaudeProviderEnabled = false, CodexOfficialUsageEnabled = true });
+        configStore.SaveWithSyncApproval(new AppConfig { SyncApproved = true, ClaudeProviderEnabled = false, CodexOfficialUsageEnabled = true });
         var service = new CompositeUsageService(configStore, new LocalLogUsageService(home), new FailedOfficialFixtureService());
         var snapshot = (await service.SnapshotsAsync(now)).Single();
         Expect(snapshot.Percent == null && snapshot.Weekly?.PercentLeft == null && snapshot.Status == UsageStatus.Unknown,

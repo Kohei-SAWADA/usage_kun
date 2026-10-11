@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "version": "0.4.7",
+  "platform": "Windows Intel/AMD x64",
+  "releaseTag": "v0.4.7",
+  "releaseUrl": "https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.7",
+  "sourceInputsSha256": "620625d8eac8e75e457f1de13b3d45edb4ebc039dab207dff69714689f8e3780",
+  "buildProvenance": "docs/windows-build-v0.4.7.json",
+  "assets": [
+    {
+      "name": "UsageKun-Windows-x64.zip",
+      "sha256": "d514beb3413911571ada83959f6851f2d94e75eaf66da8684a59beeda87c2e2d",
+      "size": 68930225
+    },
+    {
+      "name": "UsageKun-Windows-x64.zip.sha256",
+      "sha256": "cd63e5a0797d41b8c8b433c34f01a96e546fb767ecc6d7c5bed25f3a6d853e10",
+      "size": 91
+    },
+    {
+      "name": "UsageKun-Windows-source-v0.4.7.zip",
+      "sha256": "0ad7d7a373e70b5e69cb04d689fb285f20d29f96d85a80f5894c6890a97ba3ea",
+      "size": 83321
+    },
+    {
+      "name": "UsageKun-Windows-source-v0.4.7.zip.sha256",
+      "sha256": "0055f431f83c05443005d213f7b7c20a5f47d14226723a127574357a21a2e01e",
+      "size": 101
+    },
+    {
+      "name": "SOURCE_INPUTS.sha256",
+      "sha256": "620625d8eac8e75e457f1de13b3d45edb4ebc039dab207dff69714689f8e3780",
+      "size": 3351
+    },
+    {
+      "name": "SOURCE_INPUTS.json",
+      "sha256": "c75dc065a647bc2848b728d70c6dbc5d0a2e7e7699db6a33f64122956f93b0ef",
+      "size": 5248
+    },
+    {
+      "name": "BUILD_MANIFEST.json",
+      "sha256": "b7cb16172b95d1b4f52caf02211e3a968a044fbc0cf26cb1ac779ac7d1818f7c",
+      "size": 2249
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "sha256": "49c335ea9a8c25a9b376bec15f31904e0ebc35976b57ec434be1bd94945905ee",
+      "size": 656
+    }
+  ],
+  "macOS": {
+    "version": "0.4.4",
+    "releaseUrl": "https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.4",
+    "downloadUrl": "https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.4/UsageKun-macOS.zip",
+    "sha256": "0820be6f7e7599940555e04528d61f111b93dfbb757807d5cc82c8d9a3c9fc15",
+    "unchanged": true
+  }
+}

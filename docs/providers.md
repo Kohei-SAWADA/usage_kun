@@ -37,7 +37,7 @@ The public explanation of the two Gemini windows is in
 [Antigravity's Models documentation](https://www.antigravity.google/docs/models/).
 Windows supports Gemini (Antigravity) from v0.4.1. In Settings, enable both
 **Providers → Show Gemini (Antigravity)** and **Sync sources → Read Gemini quota
-from Antigravity (opt-in)**, then click **Save**. Run and sign in to Antigravity
+from Antigravity**, then click **Save**. In Windows release 0.4.7, the sync checkbox is initially checked, but reading is blocked until explicit **Start sync** approval is saved; provider display remains off by default. **Save** alone does not grant approval. The public v0.4.4 ZIP retains its existing opt-in settings. Run and sign in to Antigravity
 inside the same Windows user session. See the [Windows guide](windows.md) for
 platform-specific setup and validation limits.
 

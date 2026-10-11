@@ -19,6 +19,6 @@ This project is currently a small personal utility. Security fixes are expected 
 ## Security Principles
 
 - Tokens must not be logged.
-- CLI sign-in tokens must be read-only and opt-in.
+- CLI sign-in tokens must be read-only and used only for enabled sync sources. macOS official sync is opt-in; Windows release 0.4.7 checks sync selections by default but requires explicit, successfully saved Start sync approval before reading sources, credentials, or making requests. Existing explicit off choices remain off. Windows v0.4.7 includes this approval gate.
 - Provider data must not be mixed across providers.
 - Browser cookie access is not implemented. Any future browser-cookie feature should go through a separate security review before release.

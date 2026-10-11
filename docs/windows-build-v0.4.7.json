@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "product": "usage_kun",
+  "version": "0.4.7",
+  "platform": "Windows Intel/AMD x64",
+  "buildDate": "2026-10-11",
+  "releaseTag": "v0.4.7",
+  "sourceInputs": {
+    "manifest": "SOURCE_INPUTS.sha256",
+    "jsonManifest": "SOURCE_INPUTS.json",
+    "sha256": "620625d8eac8e75e457f1de13b3d45edb4ebc039dab207dff69714689f8e3780",
+    "fileCount": 30,
+    "allArchivedInputsMatched": true,
+    "gitIndexBytesVerified": true
+  },
+  "distribution": {
+    "name": "UsageKun-Windows-x64.zip",
+    "sha256": "d514beb3413911571ada83959f6851f2d94e75eaf66da8684a59beeda87c2e2d",
+    "bytes": 68930225,
+    "selfContained": true,
+    "runtime": "win-x64",
+    "unsigned": true
+  },
+  "exactWindowsSource": {
+    "name": "UsageKun-Windows-source-v0.4.7.zip",
+    "sha256": "0ad7d7a373e70b5e69cb04d689fb285f20d29f96d85a80f5894c6890a97ba3ea",
+    "bytes": 83321,
+    "originalBuildInputsUnchanged": true,
+    "repackagedForPublication": true
+  },
+  "executable": {
+    "name": "UsageKun.exe",
+    "sha256": "3855f34f474c54c534d81a69a31d647a6ae0da1a326764947cb9139282082f0c",
+    "fileVersion": "0.4.7.0",
+    "productVersion": "0.4.7+620625d8eac8e75e457f1de13b3d45edb4ebc039dab207dff69714689f8e3780",
+    "zipMatchesOriginalVerifiedBuild": true
+  },
+  "toolchain": {
+    "dotnetSdk": "8.0.425",
+    "configuration": "Release",
+    "targetFramework": "net8.0-windows"
+  },
+  "validation": {
+    "releaseBuild": "PASS; zero warnings/errors",
+    "coreCheck": "PASS",
+    "selfContainedX64CoreCheck": "PASS",
+    "wpfIntegration": "PASS; 92 checks",
+    "packagedSettingsVersion": "0.4.7 observed",
+    "restartAndSingleInstance": "PASS",
+    "codexOfficialApi": "PASS; separate read-only diagnostic using matching 0.4.7 Core",
+    "meterAndNativeTrayVisuals": "UNVERIFIED",
+    "claudeAndAntigravityLiveSync": "UNVERIFIED",
+    "logoutLoginStartup": "NOT RUN"
+  },
+  "macOS": {
+    "version": "0.4.4",
+    "releaseUrl": "https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.4",
+    "sourceAndAssetsUnchanged": true
+  },
+  "provenance": "Existing verified 0.4.7 binary retained; exact Windows build inputs repackaged without local Mac modifications or personal runtime logs. Publication documentation changed after the original build."
+}

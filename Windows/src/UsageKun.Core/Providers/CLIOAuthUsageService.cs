@@ -18,7 +18,7 @@ public interface IOfficialUsageService
     Task<OfficialUsageResult> SnapshotAsync(UsageProvider provider, DateTimeOffset now);
 }
 
-/// Uses an existing CLI sign-in only after the composite service's explicit opt-in.
+/// Called by CompositeUsageService only after explicit sync approval and when its source is enabled.
 /// Credentials stay in memory for one request: no refresh, persistence, or logging.
 public sealed class CLIOAuthUsageService : IOfficialUsageService
 {

@@ -4,7 +4,7 @@ usage_kun for Windows is a native .NET 8 / WPF system-tray app with a compact fl
 
 ## Download and install
 
-Choose the ZIP from [the latest release](https://github.com/Kohei-SAWADA/usage_kun/releases/latest):
+The current Windows release is [v0.4.7](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.7) (2026-10-11). Choose [UsageKun-Windows-x64.zip](https://github.com/Kohei-SAWADA/usage_kun/releases/download/v0.4.7/UsageKun-Windows-x64.zip). macOS remains v0.4.4:
 
 | Computer | Download |
 | --- | --- |
@@ -16,7 +16,7 @@ Check **Settings > System > About > System type** for an x64-based processor. Us
 
 Updates are installed manually; there is no automatic updater or installer.
 
-1. Download `UsageKun-Windows-x64.zip` from [the latest release](https://github.com/Kohei-SAWADA/usage_kun/releases/latest) on an Intel / AMD Windows PC (x64).
+1. Download `UsageKun-Windows-x64.zip` from [the v0.4.7 release](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.7) on an Intel / AMD Windows PC (x64).
 2. Right-click the running app's tray icon and choose **Quit usage_kun**.
 3. Use **Extract All...**, then replace the complete app contents in the existing app folder. Keeping the same folder preserves shortcut and startup paths; no uninstall is needed.
 4. Start the new `UsageKun.exe` and choose **Refresh now** from the tray menu.
@@ -33,7 +33,7 @@ Windows ARM installations have no supported update from v0.4.2 onward. Installin
 - Optional official Claude and Codex usage sync using existing Windows CLI sign-ins, without saving, refreshing, or logging credentials.
 - Optional Gemini quota from the running Antigravity IDE in the same Windows user session.
 - Independent settings window, persistent Save/Cancel controls, and scrolling for small screens.
-- Provider visibility, refresh interval, window position, and start-with-Windows settings.
+- Provider visibility, refresh interval, window position, optional always-on-top, and start-with-Windows settings.
 
 ## Reading the meter (v0.4.3)
 
@@ -57,16 +57,16 @@ verified against that record.
 
 Local Claude conversation logs supply logged token counts and an API-equivalent
 cost estimate, not a reliable subscription quota or reset. Windows now leaves
-Claude quota unknown until opt-in official sync returns usable quota fields.
+Claude quota unknown until official sync returns usable quota fields.
 Existing plan/calibration settings do not turn logged tokens into a percentage.
 
 Codex quota belongs to Codex even when its CLI sign-in uses a ChatGPT account.
 It does not measure ordinary ChatGPT chat limits or API billing. The app does not
 provide a separate ChatGPT chat-quota meter. See [provider details](providers.md#windows-quota-accuracy-v043).
 
-## Sign in and enable sync
+## Sign in and sync
 
-Sign in to the relevant CLI or IDE **inside Windows**, then enable its sync option in Settings. Gemini has separate provider-display and quota-sync options. Sync is opt-in. Missing or unavailable usage is displayed with a reason and a next action.
+Sign in to the relevant CLI or IDE **inside Windows**. In Windows 0.4.7, review the sources you want to use in Settings, then choose **Start sync** to save explicit approval. **Save** alone does not approve sync. Public v0.4.4 retains its previous opt-in Save behavior. Existing explicit off choices remain off when upgrading. Gemini has a separate provider-display option, which remains off by default. Missing or unavailable usage is displayed with a reason and a next action.
 
 | Source | Windows data |
 | --- | --- |
@@ -78,9 +78,19 @@ Sign in to the relevant CLI or IDE **inside Windows**, then enable its sync opti
 
 Official requests go only to the vendor endpoints. Antigravity's ephemeral credential is sent only to its discovered loopback service. Redirects are not followed. Mac sign-in files are not automatically copied or reused.
 
+## Current Windows release
+
+Windows **0.4.7** includes the latest source changes described here. App and core assemblies are both 0.4.7. The [v0.4.7 release](https://github.com/Kohei-SAWADA/usage_kun/releases/tag/v0.4.7) includes the exact Windows build-source snapshot, input hashes, package checksums, and build manifest. [Windows build provenance](windows-build-v0.4.7.json) records the source and packaged executable identity. macOS remains v0.4.4.
+
+All four **Sync sources** checkboxes start checked for a new configuration: local CLI logs, Claude usage sync, Codex usage sync, and Gemini quota from Antigravity. Those selections are separate from permission to begin reading sources. Review them in Settings, uncheck unwanted sources, then choose **Start sync** to explicitly approve and save the selected sources. **Save** alone only saves preferences. Existing explicit off choices remain off. Existing configurations without an explicit sync approval and unreadable/corrupt configurations require approval; a failed save does not authorize sync.
+
+Before approval, startup, timer ticks, tray refresh, and settings changes do not read usage sources or credentials and do not contact provider or Antigravity services. The service layer also refuses direct refresh calls. After approval, only visible providers and enabled sources are fetched. A settings save failure pauses sync in the running session. If the app is restarted before that failure is resolved, the last successfully saved approval and source selections can be reloaded; an unsaved opt-out is not a durable settings change. Isolated WPF checks have passed on Windows. A separate read-only diagnostic using the matching 0.4.7 Core successfully fetched Codex official usage; the running GUI refresh result and physical meter/tray interaction were not captured.
+
 ## Settings and startup
 
-Configuration lives at `%APPDATA%\usage_kun\config.json`. Shared settings use the same camelCase keys as macOS. Windows adds `widgetPositionX` and `widgetPositionY` for the meter position.
+Configuration lives at `%APPDATA%\usage_kun\config.json`. Shared settings use the same camelCase keys as macOS. Windows adds `widgetPositionX` and `widgetPositionY` for the meter position, and `alwaysOnTop` for window stacking.
+
+**Settings > Behavior > Always on top** defaults to off, including when updating from an older version. Other applications can cover the meter and settings window normally. Enable the checkbox and click **Save** to keep usage_kun above other applications. Saving applies the change to the existing meter immediately and preserves it across restarts; **Cancel** discards changes.
 
 Start-with-Windows uses the current user's `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` key and does not require administrator rights.
 
@@ -99,8 +109,10 @@ The package script runs core checks before creating a self-contained ZIP and its
 
 ## Validation and limits
 
+Windows 0.4.7 validation on 2026-10-11: the Windows Release solution build passed with zero warnings/errors; `UsageKun.Core.Check`, the self-contained win-x64 core-check executable, and `UsageKun.UI.Check` passed using isolated synthetic fixtures. Cases verify no source, credential, discovery or request calls before approval, normal Save versus explicit Start sync, persisted opt-outs, malformed/missing/duplicate approval, startup persistence, and failed saves. The self-contained x64 ZIP was rebuilt from the recorded source snapshot. Its extracted executable matches the publish output byte-for-byte; source, ZIP, and executable SHA-256 hashes are recorded in the dated build manifest. A separate read-only diagnostic using the matching 0.4.7 Core successfully fetched Codex official usage. The installed packaged app showed version 0.4.7 in Settings and passed restart/single-instance checks. Physical meter/tray visuals and logout/login startup were not verified.
+
 Core and WPF checks use synthetic fixtures to cover parsing, opt-in gates, error paths, refresh/settings handlers, Save/Cancel, duration labels, and small-screen layout. Quota regression cases include 94.9, 95, 95.1, 99, 99.5, and 100, used/remaining conversion, missing windows, stale records, expired resets, and separation of providers and model buckets. The WPF checks invoke the actual Click handlers, not OS mouse input.
 
-Live account sync has not been verified with authenticated Windows accounts. Physical mouse and tray interaction on an Intel / AMD Windows PC (x64) has not been verified. See the release notes for the build and check results for each version.
+Live Codex official usage was verified through a separate read-only diagnostic using the matching Core, not by capturing the running GUI refresh. Live Claude and Antigravity sync, physical meter/tray visuals, and logout/login startup were not verified. See the release notes for the build and check results for each version.
 
 Codex live rate limits in `logs_2.sqlite` are read in read-only mode; the SQLite runtime is bundled, so no separate SQLite installation is needed. Auxiliary token/thread statistics from `state_5.sqlite` and Windows toast notifications are not implemented. Antigravity relies on its IDE's local API, which may change.
